@@ -31,27 +31,39 @@ function draw() {
 
     let hitWall = false
 
-    if(xPose > width || xPose < 0){
+    if (xPose > width || xPose < 0) {
       xPose = constrain(xPose, 0, width)
-      xdir = xPose === 0 ? random(0.3, 1) : -random(0.3, 1)
+      if (xPose === 0) 
+      {
+      xdir = random(0, 1)   
+      } else 
+      {
+      xdir = -random(0, 1)  
+      }
       ydir = random(-1, 1)
       hitWall = true
     }
 
-    if(yPose > height || yPose < 0){
+    if (yPose > height || yPose < 0) {
       yPose = constrain(yPose, 0, height)
-
-      ydir = yPose === 0 ? random(0.3, 1) : -random(0.3, 1)
+      if (yPose === 0) 
+      {
+      ydir = random(0, 1)   
+      } else 
+      {
+      ydir = -random(0, 1)  
+      }
       xdir = random(-1, 1)
       hitWall = true
     }
+
 
     if(hitWall && balls.length < 100){
       balls.push({
         xPose,
         yPose,
-        xdir: xdir * random(0.3, 1.5),
-        ydir: ydir * random(0.3, 1.5),
+        xdir: xdir * random(0, 1),
+        ydir: ydir * random(0, 1),
         speed: random(10, 30),
         color: color(random(255), random(255), random(255))
       })
