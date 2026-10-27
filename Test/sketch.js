@@ -53,7 +53,7 @@ function draw() {
   // Draw subtle shadow for depth on white background
   noStroke();
   fill(0, 0, 0, 18);
-  circle(x, y + 3, (radius + 2) * 2);
+  circle(x, y + 4, (radius + 2) * 2);
 
   // Draw main ball
   fill(ballColor);
