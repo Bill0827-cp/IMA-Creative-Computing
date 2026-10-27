@@ -1,0 +1,111 @@
+
+
+#include <Servo.h>
+
+
+Servo skeletonServo;
+
+
+const int SERVO_PIN = 9;
+
+
+const int STOP_VALUE = 90;
+const int CLOCKWISE = 180;
+const int COUNTERCLOCKWISE = 0;
+
+
+const unsigned long FIRST_CLOCKWISE_TIME = 5000;
+const unsigned long NORMAL_TIME = 1000;
+const unsigned long FINAL_COUNTERCLOCKWISE_TIME = 5000;
+
+
+const int TOTAL_CYCLES = 5;
+
+
+bool isRunning = false;
+bool isClockwise = true;
+
+
+int cycleCount = 0;
+
+
+unsigned long directionStartTime = 0;
+unsigned long currentDirectionTime = 0;
+
+
+String command = "";
+
+
+void setup() {
+ Serial.begin(9600);
+
+
+ skeletonServo.attach(SERVO_PIN);
+ skeletonServo.write(STOP_VALUE);
+}
+
+
+void loop() {
+ while (Serial.available() > 0) {
+   char incoming = Serial.read();
+
+
+   if (incoming == '\n' || incoming == '\r') {
+     command.trim();
+
+
+     if (command == "WAVE" && !isRunning) {
+       isRunning = true;
+       isClockwise = true;
+       cycleCount = 0;
+
+
+       currentDirectionTime = FIRST_CLOCKWISE_TIME;
+       directionStartTime = millis();
+
+
+       skeletonServo.write(CLOCKWISE);
+     }
+
+
+     command = "";
+   } else {
+     command += incoming;
+   }
+ }
+
+
+ if (isRunning &&
+     millis() - directionStartTime >= currentDirectionTime) {
+
+
+   directionStartTime = millis();
+
+
+   if (isClockwise) {
+     skeletonServo.write(COUNTERCLOCKWISE);
+     isClockwise = false;
+
+
+     if (cycleCount == TOTAL_CYCLES - 1) {
+       currentDirectionTime = FINAL_COUNTERCLOCKWISE_TIME;
+     } else {
+       currentDirectionTime = NORMAL_TIME;
+     }
+
+
+   } else {
+     cycleCount++;
+
+
+     if (cycleCount >= TOTAL_CYCLES) {
+       skeletonServo.write(STOP_VALUE);
+       isRunning = false;
+     } else {
+       skeletonServo.write(CLOCKWISE);
+       isClockwise = true;
+       currentDirectionTime = NORMAL_TIME;
+     }
+   }
+ }
+}
