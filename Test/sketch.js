@@ -5,7 +5,7 @@ let vy;
 let radius = 24;
 let ballColor;
 
-function setup() {
+function setup() { 
   const canvas = createCanvas(600, 400);
   canvas.parent('canvas-container');
 
