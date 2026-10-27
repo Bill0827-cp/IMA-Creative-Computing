@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Skeleton Vending Machine</title>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.11.3/addons/p5.sound.min.js"></script>
+  <script src="https://unpkg.com/ml5@0.12.2/dist/ml5.min.js"></script>
+  <script src="https://unpkg.com/@gohai/p5.webserial@1/libraries/p5.webserial.js"></script>
+  <script src="sketch.js" defer></script>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      background: #111;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    canvas {
+      display: block;
+      margin: 16px auto;
+      max-width: 100%;
+      height: auto;
+    }
+
+    button, select {
+      margin: 5px;
+      padding: 10px 14px;
+      font-size: 14px;
+    }
+
+    #instructions {
+      max-width: 640px;
+      margin: 10px auto;
+      overflow-wrap: anywhere;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Skeleton Vending Machine</h2>
+  <p>Stand in front of the camera for 5 seconds.</p>
+  <p id="instructions">Connect the Arduino, then test the servo.</p>
+</body>
+</html>
