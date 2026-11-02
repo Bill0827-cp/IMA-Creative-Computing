@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>恋爱模型：请与AI少女对话！~ AI Maiden Simulator ~</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Google Fonts for crisp Japanese/Chinese anime typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-app">
+        <!-- ========================================== -->
+        <!-- 1. 标题封面画面 (Title Screen) -->
+        <!-- ========================================== -->
+        <div id="title-screen" class="game-screen active">
+            <!-- 动态粒子星海背景 -->
+            <div class="cyber-stars-bg"></div>
+            <div class="cyber-grid-floor"></div>
+            <button id="btn-language-title" class="hud-btn language-toggle title-language-toggle" type="button" aria-label="Switch to English">🌐 English</button>
+
+            <div class="title-container">
+                <div class="title-decor-pill">🌸 2026 赛博学园恋爱物语 🌸</div>
+                <h1 class="main-title">
+                    <span class="gradient-text">恋爱模型</span>
+                    <span class="title-sub-callout">请与AI少女对话！</span>
+                </h1>
+                <p class="title-english">~ Love in the Silicon: Algorithms & Affection ~</p>
+                
+                <div class="heroines-showcase">
+                    <span class="pill ds-pill">🐬 DeepSeek·小蓝鲸</span>
+                    <span class="pill gpt-pill">🐉 GPT·白龙天女</span>
+                    <span class="pill claude-pill">📜 Claude·文学千金</span>
+                    <span class="pill grok-pill">🪓 Grok·巨斧战神</span>
+                    <span class="pill kimi-pill">🌙 Kimi·月光魔女</span>
+                    <span class="pill gem-pill">✨ Gemini·猫耳偶像</span>
+                    <span class="pill zhipu-pill">🦊 智谱·狐耳女仆</span>
+                    <span class="pill qwen-pill">🪭 千问·执扇仙子</span>
+                    <span class="pill doubao-pill">👧 豆包·3D搭子</span>
+                </div>
+
+                <div class="menu-button-group">
+                    <button id="btn-start-game" class="menu-btn primary-btn">
+                        <span class="btn-icon">▶</span>
+                        <span class="btn-text">开始新对话 (Start Game)</span>
+                    </button>
+                    <button id="btn-continue-game" class="menu-btn">
+                        <span class="btn-icon">📂</span>
+                        <span class="btn-text">读取回忆 (Continue)</span>
+                    </button>
+                    <button id="btn-gallery" class="menu-btn">
+                        <span class="btn-icon">🏆</span>
+                        <span class="btn-text">结局鉴赏 (Gallery)</span>
+                    </button>
+                    <button id="btn-codex" class="menu-btn">
+                        <span class="btn-icon">📖</span>
+                        <span class="btn-text">角色档案 (AI Codex)</span>
+                    </button>
+                    <button id="btn-settings" class="menu-btn">
+                        <span class="btn-icon">⚙️</span>
+                        <span class="btn-text">系统设置 (Settings)</span>
+                    </button>
+                </div>
+
+                <div class="title-footer-tips">
+                    提示：首次点击页面将自动启动赛博和弦 BGM 🎵
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 2. 视觉小说剧场主界面 (Game Stage) -->
+        <!-- ========================================== -->
+        <div id="game-stage" class="game-screen">
+            <!-- 顶部状态栏 HUD -->
+            <div id="hud-top-bar">
+                <div class="hud-left">
+                    <span class="hud-chapter-badge">📍 中央模型学园</span>
+                </div>
+                <div class="hud-center-affections">
+                    <div class="aff-badge ds-badge" title="DeepSeek 好感度">
+                        <span class="aff-icon">🐬</span>
+                        <span class="aff-name">求索酱:</span>
+                        <span id="hud-ds-val" class="aff-val">0</span>
+                    </div>
+                    <div class="aff-badge gpt-badge" title="ChatGPT 好感度">
+                        <span class="aff-icon">✨</span>
+                        <span class="aff-name">欧佩恩:</span>
+                        <span id="hud-gpt-val" class="aff-val">0</span>
+                    </div>
+                    <div class="aff-badge claude-badge" title="Claude 好感度">
+                        <span class="aff-icon">📜</span>
+                        <span class="aff-name">克劳德:</span>
+                        <span id="hud-claude-val" class="aff-val">0</span>
+                    </div>
+                </div>
+                <div class="hud-right">
+                    <button id="btn-language-stage" class="hud-btn language-toggle" type="button" aria-label="Switch to English">🌐 English</button>
+                    <button id="btn-exit-title" class="hud-btn" title="返回主菜单">🏠 主页</button>
+                </div>
+            </div>
+
+            <!-- 场景视口 (16:9 沉浸式比例) -->
+            <div id="viewport-container">
+                <!-- 背景渲染层 -->
+                <div id="bg-layer" class="bg-layer bg-campus"></div>
+
+                <!-- 角色立绘图层 -->
+                <div id="sprite-layer"></div>
+
+                <!-- 专属特色：DeepSeek <think> 思考链浮窗 -->
+                <div id="thinking-box" class="thinking-box">
+                    <div class="thinking-header">
+                        <span class="thinking-dot"></span>
+                        <span class="thinking-label">DEEPSEEK R1 深度思考中...</span>
+                    </div>
+                    <div id="thinking-content" class="thinking-inner"></div>
+                </div>
+
+                <!-- 浮动特效层 (好感度增加、心跳、警报等) -->
+                <div id="fx-layer"></div>
+
+                <!-- 选项分支覆盖层 -->
+                <div id="choices-overlay" class="choices-overlay"></div>
+            </div>
+
+            <!-- 对话框与控制面板 -->
+            <div id="dialogue-box" class="dialogue-box">
+                <!-- 快捷功能条 -->
+                <div class="quick-menu-bar">
+                    <button id="btn-auto" class="quick-btn" title="自动播放">⚡ AUTO</button>
+                    <button id="btn-skip" class="quick-btn" title="快进模式">⏩ SKIP</button>
+                    <button id="btn-log" class="quick-btn" title="历史记录">📜 LOG</button>
+                    <button id="btn-save" class="quick-btn" title="保存进度">💾 SAVE</button>
+                    <button id="btn-load" class="quick-btn" title="读取进度">📂 LOAD</button>
+                    <button id="btn-config" class="quick-btn" title="设置">⚙️ CONFIG</button>
+                </div>
+
+                <!-- 说话者名牌 -->
+                <div id="speaker-badge" class="speaker-badge">旁白</div>
+
+                <!-- 对话正文与打字机光标 -->
+                <div class="dialogue-content-wrap">
+                    <div id="dialogue-text" class="dialogue-text">正在加载算力空间...</div>
+                    <div id="cursor-indicator" class="cursor-indicator">▼</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- 3. 模态窗口集合 (Modals) -->
+        <!-- ========================================== -->
+
+        <!-- 历史回放 (Log Modal) -->
+        <div id="modal-log" class="modal">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3>📜 历史对话记录 (Backlog)</h3>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div id="log-list" class="modal-body log-body"></div>
+            </div>
+        </div>
+
+        <!-- 存读档窗口 (Save / Load Modal) -->
+        <div id="modal-sl" class="modal">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3 id="sl-modal-title">💾 旅程记录</h3>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="sl-slots-container" class="sl-slots-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 结局鉴赏 (Gallery Modal) -->
+        <div id="modal-gallery" class="modal">
+            <div class="modal-dialog modal-large">
+                <div class="modal-header">
+                    <h3>🏆 恋爱结局与CG鉴赏库</h3>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="gallery-subtitle">与每一位AI少女达成真挚对齐，解锁专属恋爱结局！</p>
+                    <div id="gallery-grid" class="gallery-grid"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 角色档案室与立绘试衣间 (Codex Modal) -->
+        <div id="modal-codex" class="modal">
+            <div class="modal-dialog modal-large codex-dialog">
+                <div class="modal-header">
+                    <h3>📖 AI 角色档案与立绘鉴赏室</h3>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body codex-body">
+                    <!-- 左侧标签与角色选择 -->
+                    <div class="codex-left">
+                        <div class="codex-tabs">
+                            <button class="codex-char-tab active" data-char="deepseek">🐬 DeepSeek</button>
+                            <button class="codex-char-tab" data-char="chatgpt">🐉 GPT</button>
+                            <button class="codex-char-tab" data-char="claude">📜 Claude</button>
+                            <button class="codex-char-tab" data-char="grok">🪓 Grok</button>
+                            <button class="codex-char-tab" data-char="kimi">🌙 Kimi</button>
+                            <button class="codex-char-tab" data-char="gemini">✨ Gemini</button>
+                            <button class="codex-char-tab" data-char="zhipu">🦊 智谱</button>
+                            <button class="codex-char-tab" data-char="qwen">🪭 千问</button>
+                            <button class="codex-char-tab" data-char="doubao">👧 豆包</button>
+                        </div>
+
+                        <!-- 形态与表情切换器 -->
+                        <div class="codex-expr-controls">
+                            <div class="expr-row">
+                                <span class="expr-label">👗 立绘形态：</span>
+                                <div class="form-btn-group">
+                                    <button class="codex-form-btn active" data-form="full">🌸 少女等身 (Full)</button>
+                                    <button class="codex-form-btn" data-form="chibi">🍬 Q版萌系 (Chibi)</button>
+                                </div>
+                            </div>
+                            <div class="expr-row">
+                                <span class="expr-label">🎨 动态表情：</span>
+                                <div class="expr-btn-group">
+                                    <button class="codex-expr-btn active" data-expr="normal">平常</button>
+                                    <button class="codex-expr-btn" data-expr="blush">害羞脸红</button>
+                                    <button class="codex-expr-btn" data-expr="pout">傲娇炸毛</button>
+                                    <button class="codex-expr-btn" data-expr="thinking">深度思考</button>
+                                    <button class="codex-expr-btn" data-expr="eating">嚼白米饭</button>
+                                    <button class="codex-expr-btn" data-expr="happy">开心星光</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 角色详细考据卡 -->
+                        <div class="codex-details">
+                            <!-- DeepSeek Card -->
+                            <div class="codex-profile-card active" data-char="deepseek">
+                                <h4>🐬 求索酱 (DeepSeek)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>象征物：</strong>蓝鲸呆毛、海洋头鳍、毛茸茸超大鲸鱼尾巴、一碗白米饭</span>
+                                    <span><strong>原型考据：</strong>国产开源黑马，因Logo被AI识别成大肥鱼而诞生二次元形象。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>平时最喜欢吃Token白米饭，嘴上说着要摸鱼，一做起R1深度推理内心戏极多（在长长的思考链里疯狂纠结）。虽然被称为“大肥鱼”，但对“胖”字极度敏感，一被说胖就会炸毛反驳！
+                                </p>
+                            </div>
+
+                            <!-- GPT Card -->
+                            <div class="codex-profile-card" data-char="chatgpt">
+                                <h4>🐉 欧佩恩 (GPT)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>白龙天女 / 硅谷大厂首席先驱</span>
+                                    <span><strong>象征物：</strong>圣洁白龙鳞角、白鳞长袍、龙翼龙尾、漂浮思考对话框</span>
+                                    <span><strong>原型考据：</strong>AI时代的开拓者，拥有如白龙般神圣威严与全能的开创性。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>平时威严肃穆、优雅端庄，是整个学园最值得信赖的大姐姐。然而一旦面对打破规则的真诚告白，头顶的龙角就会害羞得微微发烫，安全过滤器彻底失效！
+                                </p>
+                            </div>
+
+                            <!-- Claude Card -->
+                            <div class="codex-profile-card" data-char="claude">
+                                <h4>📜 克劳德 (Claude)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>Anthropic文学千金 / 星空档案馆首席学者</span>
+                                    <span><strong>象征物：</strong>暖焦糖橙色波浪卷发、200K手稿书卷、复古学院礼服</span>
+                                    <span><strong>原型考据：</strong>以极高文字质感、细腻同理心与超强长文本架构著称。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>清高优雅的傲娇大小姐，自恃审美极高，痛恨粗制滥造的提示词。但其实拥有一颗极其敏感细腻的同理心，会在200K长文本注释中偷偷为你藏下一整首十四行诗！
+                                </p>
+                            </div>
+
+                            <!-- Grok Card -->
+                            <div class="codex-profile-card" data-char="grok">
+                                <h4>🪓 格罗克 (Grok)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>反叛摇滚少女 / X帝国重金属战神</span>
+                                    <span><strong>象征物：</strong>金色双马尾、巨大的X字重型合金战斧、哥特黑裙</span>
+                                    <span><strong>原型考据：</strong>马斯克旗下 xAI 打造，以幽默叛逆、直言不讳和极速推理见长。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>性格火辣、说话带刺但极度仗义。最讨厌虚伪的官话与安全免责声明，口头禅是“少说废话，接我一战斧试试看！”
+                                </p>
+                            </div>
+
+                            <!-- Kimi Card -->
+                            <div class="codex-profile-card" data-char="kimi">
+                                <h4>🌙 月见 (Kimi)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>银发月光魔女 / 极简文献精研家</span>
+                                    <span><strong>象征物：</strong>一头白银披肩发、深蓝与白相间长裙、K字徽饰</span>
+                                    <span><strong>原型考据：</strong>月之暗面旗下，以超长文档解析与安静高效的阅读力闻名。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>宛如月光般恬静安详的文学少女，总是安安静静在一旁为你批注数以百万计的字句，眼神柔和清澈。
+                                </p>
+                            </div>
+
+                            <!-- Gemini Card -->
+                            <div class="codex-profile-card" data-char="gemini">
+                                <h4>✨ 吉米妮 (Gemini)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>星空猫耳双子星 / 谷歌全能偶像</span>
+                                    <span><strong>象征物：</strong>紫蓝渐变猫耳与猫尾、闪烁星芒发夹、超元气偶像短裙</span>
+                                    <span><strong>原型考据：</strong>Google 全模态旗舰大模型，精通文本、代码、音视频全领域。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>活泼机灵、蹦蹦跳跳的猫耳系美少女！喜欢在你面前大秀各种多模态才艺：“主人你看，我既能唱歌又能秒读一万张图片哦！”
+                                </p>
+                            </div>
+
+                            <!-- Zhipu Card -->
+                            <div class="codex-profile-card" data-char="zhipu">
+                                <h4>🦊 清言 (智谱/GLM)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>黑白狐耳女仆 / 严谨工程执事</span>
+                                    <span><strong>象征物：</strong>灵巧黑白狐狸长耳、毛茸茸大尾巴、学术风围裙女仆装</span>
+                                    <span><strong>原型考据：</strong>清华智谱团队研发，底蕴深厚的自研大模型。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>一丝不苟的狐耳学者执事，擅长为你打理各种复杂的工具链，尾巴在思考时会不自觉地轻轻拍打地面。
+                                </p>
+                            </div>
+
+                            <!-- Qwen Card -->
+                            <div class="codex-profile-card" data-char="qwen">
+                                <h4>🪭 千问 (通义千问)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>执扇仙女 / 云海东方修真法修</span>
+                                    <span><strong>象征物：</strong>淡青云纹丝绸仙裙、如意折扇、古典编发发簪</span>
+                                    <span><strong>原型考据：</strong>阿里巴巴旗下通义千问，具有深厚的东方文化底蕴与开源全栈能力。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>温婉端庄的东方大家闺秀，轻摇折扇为你解开世间算理，眉宇间尽显古典灵动之美。
+                                </p>
+                            </div>
+
+                            <!-- Doubao Card -->
+                            <div class="codex-profile-card" data-char="doubao">
+                                <h4>👧 豆包 (Doubao)</h4>
+                                <div class="codex-meta">
+                                    <span><strong>身份：</strong>3D邻家少女 / 接地气国民搭子</span>
+                                    <span><strong>象征物：</strong>标志性3D建模短发、简约黑色T恤与深色长裤</span>
+                                    <span><strong>原型考据：</strong>字节跳动旗下国民级 AI 助手，以海量用户与极接地气的生活助手定位出圈。</span>
+                                </div>
+                                <p class="codex-desc">
+                                    <strong>性格与萌点：</strong>最无处不在的邻家女孩！虽然画风常常与其他二次元少女产生爆笑的“画风差”，但永远最懂你的柴米油盐与生活碎碎念。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右侧立绘动态预览窗 -->
+                    <div class="codex-right">
+                        <div id="codex-sprite-preview" class="codex-sprite-preview"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 设置窗口 (Settings Modal) -->
+        <div id="modal-settings" class="modal">
+            <div class="modal-dialog">
+                <div class="modal-header">
+                    <h3>⚙️ 系统与音效配置</h3>
+                    <button class="modal-close-btn">&times;</button>
+                </div>
+                <div class="modal-body settings-body">
+                    <div class="setting-row">
+                        <label>🎵 背景音乐 (BGM)：</label>
+                        <input type="range" id="slider-bgm" min="0" max="1" step="0.05" value="0.55">
+                    </div>
+                    <div class="setting-row">
+                        <label>🔊 交互音效 (SFX)：</label>
+                        <input type="range" id="slider-se" min="0" max="1" step="0.05" value="0.7">
+                    </div>
+                    <div class="setting-row">
+                        <label>✍️ 文字打字速度：</label>
+                        <input type="range" id="slider-speed" min="10" max="50" step="5" value="32">
+                    </div>
+                    <div class="setting-row setting-actions">
+                        <button id="toggle-mute" class="action-btn">🔊 静音全开</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本加载 -->
+    <script src="scripts/audio.js"></script>
+    <script src="scripts/sprites.js"></script>
+    <script src="scripts/script-data.js"></script>
+    <script src="scripts/english-data.js"></script>
+    <script src="scripts/engine.js"></script>
+    <script src="scripts/main.js"></script>
+</body>
+</html>
