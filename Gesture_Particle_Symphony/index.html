@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particle Symphony</title>
+  <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <!-- Tone.js audio synthesis -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+
+  <!-- MediaPipe Hands & Camera -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <!-- Audio-visual holographic scene -->
+  <div id="stage-container">
+    <!-- 1. Live webcam feed (mirrored) -->
+    <video id="webcam-video" autoplay playsinline muted></video>
+
+    <!-- 2. Dark holographic vignette -->
+    <div id="video-overlay"></div>
+
+    <!-- 3. WebGL self-glowing particle canvas -->
+    <canvas id="particle-canvas"></canvas>
+
+    <!-- 4. 2D skeleton layer (hidden by default) -->
+    <canvas id="skeleton-canvas" style="display: none;"></canvas>
+  </div>
+
+  <!-- HUD overlay -->
+  <div id="ui-layer">
+    <!-- Top status bar -->
+    <header class="header-bar">
+      <div class="brand-section glass-panel">
+        <div class="logo-badge"></div>
+        <div class="app-title">Particle Symphony</div>
+      </div>
+      <div class="action-buttons glass-panel">
+        <button class="icon-btn" id="fullscreen-btn" title="Fullscreen">⛶</button>
+      </div>
+    </header>
+
+    <!-- Status toast -->
+    <div id="notification-toast"></div>
+
+    <!-- Bottom status bar -->
+    <footer class="footer-hud">
+      <div class="status-pill glass-panel">
+        <span class="bpm-number" id="bpm-val">90</span>
+        <span class="bpm-label">BPM</span>
+        <span class="pill-divider"></span>
+        <span class="param-label">Note</span>
+        <span class="param-value" id="note-val">--</span>
+      </div>
+    </footer>
+  </div>
+
+  <div id="start-overlay">
+    <div class="intro-container">
+      <h1 class="intro-title">Particle Symphony</h1>
+      <p class="intro-desc">Shape the particle cloud with your hands and drive the music.</p>
+      <button id="start-btn" class="start-btn">Start</button>
+    </div>
+  </div>
+
+  <script src="audioEngine.js"></script>
+  <script src="particleSystem.js"></script>
+  <script src="gestureTracker.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
