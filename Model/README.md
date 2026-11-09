@@ -1,37 +1,49 @@
-# 唇语实验室：第一天
+﻿# Lip Lab
 
-在本文件夹的终端执行 `node serve.cjs`，打开 http://127.0.0.1:8000 。也可使用编辑器的 Live Server。不要只双击 HTML。
+Capture silent lip movements, train a word classifier, and use the exported model in p5.js.
 
-1. 开启摄像头，允许视频权限。首次联网下载 ml5 1.2.1 与 FaceMesh 模型，可能需要一分钟。
-2. 看见嘴唇上的绿色点后，选择词语。按录制，等三秒倒计时，在两秒内无声说一次。
-3. “No speech”类别保持自然放松。先每类采集五次。
-4. 点击导出 JSON，并确认下载完成。刷新或关闭页面会丢失未导出的样本。现在可以在“整理并训练”区域导入。
+## Run locally
 
-样本包含词语、录制轮次、画面尺寸和每帧时间戳，以及全部面部关键点的 x/y/z。画面镜像显示，但保存坐标没有镜像、归一化或时间重采样。z 是模型相对深度，不是实际距离。数据不包含音频或视频，也不会由本程序上传。
+Run `node serve.cjs` from this folder and open http://127.0.0.1:8000. You can also use your editor's Live Server. Do not open the HTML directly from the filesystem.
 
-录制至少需要 12 个有效帧、检测尝试中至少 80% 有效，且包括首尾的最大时间缺口不超过 450 毫秒，否则不保存。帧率太低、跟踪丢失或切到后台时应重新录制。
+1. Click **Start camera** and allow video access. The first download of ml5 1.2.1 and FaceMesh may take a minute.
+2. Wait for green dots on your lips, then choose a word. Click **Record sample**, wait for the three-second countdown, and say the word silently once within two seconds.
+3. For **No speech**, stay naturally relaxed. Collect at least five samples per class to start.
+4. Click **Export sample JSON** and confirm the download. Reloading or closing the page loses unexported samples. Use **Import previously exported samples (JSON)** to restore saved data.
 
-现在已接入坐标校正、时间重采样、词语分类训练和新动作预测；尚未加入语音朗读。
+Each sample contains its word, capture session, video dimensions, frame timestamps, and all face landmarks as x/y/z coordinates. The preview is mirrored, but stored coordinates are not mirrored, normalized, or resampled. The z coordinate is model-relative depth, not physical distance. Samples contain no audio or video, and this application does not upload them.
 
-## 文件
-- index.html：页面结构。
-- style.css：样式。
-- get_data.js：摄像头、FaceMesh、录制及导出。
-- serve.cjs：仅绑定本机的静态页面服务，无第三方依赖。
+A recording needs at least 12 valid frames, at least 80% valid detection attempts, and no gap longer than 450 ms, including both endpoints. Otherwise it is not saved. Record again if detection is too slow, tracking is lost, or the page moves to the background.
 
-## 检查
-- 摄像头拒绝权限时有清晰提示，可以重试。
-- 镜像预览里的绿色点应覆盖嘴唇，头部轻移后仍跟随。
-- 无人脸时不可开始录制；中途丢脸过久，样本不保存。
-- 录制后样本计数增加，JSON 里各帧时间递增且坐标有限。
-- 停止或取消不会保存半个样本；关闭摄像头后设备指示灯应熄灭。
+Spatial normalization, time resampling, classifier training, and prediction are implemented. Speech synthesis is not included.
 
-跟踪接口依据：https://github.com/ml5js/ml5-next-gen/blob/v1.2.1/src/FaceMesh/index.js
+## Files
 
-## 训练和预测
+- `index.html`: training page structure.
+- `style.css`: page styling.
+- `get_data.js`: camera, FaceMesh, recording, preprocessing, training, prediction, and export.
+- `serve.cjs`: static server bound to localhost, with no third-party dependencies.
+- `p5-example/`: model loading and recognition example for the p5.js Web Editor.
+- `style.js` and `backup-20261106-125120/`: earlier capture-only code and backup files.
 
-四个类别各至少 5 条，可导入以前导出的原始 JSON（当前英文标签）。导入会检查数据并按样本 id 去重。点击“整理数据并训练”会关闭摄像头，先整理为每条 800 维，再优先按完整采集轮次留出测试集；轮次不足时按类别稳定留出约 20% 的完整样本。只用训练集计算归一化规则并训练 50 轮，不根据测试成绩选择参数。单轮采集的成绩可能偏乐观，继续调试后应另录新的独立测试集。
+## Manual checks
 
-训练后重新开启摄像头，点击“录制新动作并预测”。这次录制不提供答案，也不进入样本集。结果是四个类别的模型分数，不是实际正确概率。增删或导入新样本后要重新训练。模型当前只存内存，刷新前导出原始数据；还没有模型保存/加载按钮。
+- Denied camera access shows a clear message and allows retrying.
+- Green points align with lips in the mirrored preview and follow small head movements.
+- Recording cannot start without a face; extended tracking loss prevents saving.
+- Completed recordings increase sample counts; JSON timestamps increase and coordinates are finite.
+- Stopping or canceling does not save a partial sample; stopping the camera turns off its device indicator.
 
-代码阅读：prepareSample → prepareDataset → splitWordData → trainWords → classifyFeatures → predictRecording。
+Tracking API reference: https://github.com/ml5js/ml5-next-gen/blob/v1.2.1/src/FaceMesh/index.js
+
+## Training and prediction
+
+Each of the four classes needs at least five samples. You can import raw sample JSON with the current English labels. Import validates data and deduplicates sample IDs.
+
+**Prepare data and train** stops the camera and converts each action to 800 features. It prefers holding out a full capture session for testing; otherwise it deterministically holds out about 20% of complete samples per class. Only training samples determine normalization statistics and update weights during 50 epochs. Test scores do not select training parameters. Same-session scores can be optimistic; after repeated tuning, record new independent test data.
+
+After training, restart the camera and click **Record and predict**. This recording has no supplied target label and is not added to the dataset. Results are scores for four classes, not measured probabilities of correctness. Adding, removing, or importing new samples invalidates the trained model and requires retraining.
+
+Click **Export model for p5** after training. Allow multiple downloads and confirm all three files were saved: `model.json`, `model_meta.json`, and `model.weights.bin`. Upload them alongside `sketch.js` in the p5 example. Model export does not replace backing up raw sample JSON. This training page still requires importing samples and retraining after a reload.
+
+Code reading order: `prepareSample` -> `prepareDataset` -> `splitWordData` -> `trainWords` -> `classifyFeatures` -> `predictRecording`.

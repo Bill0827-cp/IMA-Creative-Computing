@@ -1,43 +1,43 @@
 "use strict";
 
-// 学习：阅读地图：先看文件末尾的按钮事件，再看 startCamera → detectLoop → beginRecording → exportData。
-// 学习：本文件负责数据采集。FaceMesh 是现成人脸模型，自己的词语分类网络和朗读尚未加入。
-// 学习：函数声明只是定义功能，点击按钮或其他函数调用它时，函数体才会执行。
-// 学习：const 表示变量不能重新赋值，let 表示可以重新赋值；const 数组依然可以添加元素。
+// Learning guide: start with the button handlers, then startCamera -> detectLoop -> beginRecording -> exportData.
+// This legacy file handles capture. FaceMesh is pretrained; custom word classification and speech synthesis are not included here.
+// A function declaration defines behavior; its body runs only when a button or another function calls it.
+// const prevents reassignment; let permits it. A const array can still accept new elements.
 
-// 学习：【一、设置与状态】$ 是按 id 查找页面元素的简写，例如 $("camera") 对应 HTML 中的视频。
+// Setup and state: $ finds an element by ID; for example, $("camera") selects the video.
 const $ = id => document.getElementById(id);
 const video = $("camera");
 const canvas = $("overlay");
 const ctx = canvas.getContext("2d");
-// 学习：LABELS 是我们手动定义的答案类别；DURATION 的单位是毫秒，2000 毫秒等于 2 秒。
+// LABELS defines the target classes. DURATION is in milliseconds: 2000 ms equals 2 seconds.
 const LABELS = ["Hello", "Thank U", "Omg", "No speech"];
 const DURATION = 2000;
 const ML5_URL = "https://cdn.jsdelivr.net/npm/ml5@1.2.1/dist/ml5.min.js";
 const MEDIAPIPE_PATH = "https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619";
-// 与可见覆盖层分开：模型读取的是真实像素，避免视频元素布局尺寸影响输入。
+// Keep model input separate from the visible overlay so layout dimensions do not affect image pixels.
 const inputCanvas = document.createElement("canvas");
 const inputContext = inputCanvas.getContext("2d");
-// 学习：sessionId 标记本轮采集；samples 存储全部已完成样本，导出前只存在内存里。
+// sessionId identifies this capture session; samples holds completed recordings in memory until export.
 const sessionId = crypto.randomUUID();
 const samples = [];
-// 学习：stream 是摄像头视频流；model 是检测器；null 表示尚未赋予实际对象。
+// stream is the camera stream; model is the detector; null means no object has been assigned yet.
 let stream = null, model = null, modelPromise = null;
-// 学习：running 表示正在检测，starting 表示正在启动；generation 防止取消后的旧任务继续运行。
+// running tracks detection, starting tracks initialization, and generation invalidates canceled tasks.
 let running = false, starting = false, generation = 0;
-// 学习：latestFace 保存最近人脸，operation 保存当前录制任务，unsaved 表示有未导出的修改。
+// latestFace holds the latest face, operation holds the active recording, and unsaved tracks unexported changes.
 let latestFace = null, latestTime = 0, operation = null, unsaved = false;
 let lastVideoTime = -1;
 
-// 学习：更新提示文字。textContent 修改页面上的文字，classList 切换错误提示的样式。
+// Update messages with textContent; classList toggles error styling.
 function status(text, error = false) {
   delete $("status").dataset.trackingCategory;
   $("status").textContent = text;
   $("status").classList.toggle("error", error);
 }
 
-// 学习：根据状态启用或禁用按钮，例如尚未检测到脸时不能录制。
-// 学习：freshFace 检查检测结果是否足够新；disabled 为 true 表示按钮不能点击。
+// Enable controls based on state; recording requires a detected face.
+// freshFace checks result freshness; disabled=true prevents clicks.
 function controls() {
   const freshFace = latestFace && performance.now() - latestTime < 700;
   $("start").disabled = starting || running;
@@ -49,8 +49,8 @@ function controls() {
   $("undo").disabled = !samples.length || !!operation;
 }
 
-// 学习：给异步操作设置最长等待时间，防止模型一直加载。初学时可先跳过。
-// 学习：Promise.race 取最先结束的结果；finally 无论成功失败都会清理计时器。
+// Limit asynchronous waits so model loading cannot run indefinitely. Beginners can skip this helper.
+// Promise.race uses the first settled result; finally clears the timer on success or failure.
 function timeout(promise, ms, message) {
   let timer;
   return Promise.race([promise, new Promise((_, reject) => {
@@ -58,32 +58,32 @@ function timeout(promise, ms, message) {
   })]).finally(() => clearTimeout(timer));
 }
 
-// 学习：下载 ml5 库。Promise 表示一件尚未完成的工作，resolve 表示成功，reject 表示失败。
+// Load ml5. A Promise represents pending work: resolve succeeds, reject fails.
 function loadLibrary() {
   if (window.ml5) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const script = document.createElement("script");
     script.src = ML5_URL;
     script.onload = resolve;
-    script.onerror = () => { script.remove(); reject(new Error("ml5 加载失败，请检查网络后重试。")); };
+    script.onerror = () => { script.remove(); reject(new Error("Failed to load ml5. Check your connection and try again.")); };
     document.head.append(script);
   });
 }
 
-// 学习：加载已经训练好的 FaceMesh 人脸模型，不是在训练我们自己的词语分类器。
-// 学习：MediaPipe 是当前使用的检测运行方式；固定版本网址用于避免库版本混用。
-// 学习：modelPromise 复用正在加载的模型，避免多次点击造成重复下载。
+// Load the pretrained FaceMesh detector; this does not train our word classifier.
+// MediaPipe is the detection runtime; pinned URLs avoid mixing library versions.
+// Reuse modelPromise to avoid duplicate downloads when the user clicks repeatedly.
 function loadModel() {
   if (!modelPromise) {
     modelPromise = (async () => {
       await loadLibrary();
-      // MediaPipe 运行方式与之前默认的 TFJS 运行方式分开，使用固定版本资源。
+      // Use pinned MediaPipe resources instead of the previous default TFJS runtime.
       if (!window.FaceMesh) {
         await new Promise((resolve, reject) => {
           const script = document.createElement("script");
           script.src = `${MEDIAPIPE_PATH}/face_mesh.js`;
           script.onload = resolve;
-          script.onerror = () => { script.remove(); reject(new Error("MediaPipe 资源加载失败，请检查网络后重试。")); };
+          script.onerror = () => { script.remove(); reject(new Error("Failed to load MediaPipe resources. Check your connection and try again.")); };
           document.head.append(script);
         });
       }
@@ -93,12 +93,12 @@ function loadModel() {
       return detector;
     })().catch(error => { modelPromise = null; throw error; });
   }
-  return timeout(modelPromise, 90000, "模型加载超过 90 秒，请检查网络。稍后可再次开启摄像头。");
+  return timeout(modelPromise, 90000, "Model loading exceeded 90 seconds. Check your connection, then restart the camera.");
 }
 
-// 学习：【核心 1：打开摄像头】先申请视频权限，再等待视频和模型就绪。
-// 学习：async 表示函数包含异步操作；await 表示等待结果，浏览器仍可响应其他事件。
-// 学习：audio: false 表示不申请麦克风。token 用于判断这次启动是否已经被取消。
+// Core 1: request camera access, then wait for the video and model to be ready.
+// async allows asynchronous work; await waits for results while the browser can handle other events.
+// audio:false avoids requesting microphone access. token detects canceled startup attempts.
 async function startCamera() {
   if (starting || running) return;
   const token = ++generation;
@@ -106,9 +106,9 @@ async function startCamera() {
   controls();
   try {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
-      throw new Error("请通过 http://localhost 本地服务或 HTTPS 打开页面。");
+      throw new Error("Open this page over HTTPS or a local http://localhost server.");
     }
-    status("请允许摄像头访问；本页面不会请求麦克风。");
+    status("Please allow camera access. This page does not request microphone access.");
     const acquired = await navigator.mediaDevices.getUserMedia({
       video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }, audio: false
     });
@@ -117,38 +117,38 @@ async function startCamera() {
     video.srcObject = stream;
     await video.play();
     if (token !== generation) return;
-    // HTML 属性尺寸也与实际视频一致，CSS 仍负责页面上的显示尺寸。
+    // Match HTML dimensions to actual video dimensions; CSS controls the displayed size.
     video.width = video.videoWidth;
     video.height = video.videoHeight;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     document.querySelector(".stage").style.aspectRatio = `${canvas.width}/${canvas.height}`;
     $("placeholder").hidden = true;
-    status("摄像头已开启，正在加载 FaceMesh / MediaPipe 兼容检测。首次加载可能需要一分钟。");
+    status("Camera started. Loading FaceMesh with MediaPipe; the first load may take a minute.");
     model = await loadModel();
     if (token !== generation) return;
     starting = false;
     running = true;
     lastVideoTime = -1;
     stream.getVideoTracks()[0].addEventListener("ended", () => {
-      if (token === generation) { stopCamera(); status("摄像头已断开，请重新开启。", true); }
+      if (token === generation) { stopCamera(); status("Camera disconnected. Please restart it.", true); }
     }, { once: true });
-    status("模型已就绪。请正对镜头，看到嘴唇上的绿色点后开始录制。");
+    status("Model ready. Face the camera and start recording when green dots appear on your lips.");
     controls();
     detectLoop(token);
   } catch (error) {
     if (token !== generation) return;
     stopCamera();
     const messages = {
-      NotAllowedError: "摄像头权限被拒绝，请在浏览器地址栏允许摄像头访问后重试。",
-      NotFoundError: "没有找到摄像头，请检查设备连接。",
-      NotReadableError: "摄像头无法使用，可能正在被其他程序占用。"
+      NotAllowedError: "Camera access denied. Allow access in the browser address bar and try again.",
+      NotFoundError: "No camera found. Check your device connection.",
+      NotReadableError: "Camera unavailable. Another application may be using it."
     };
     status(messages[error.name] || error.message, true);
   }
 }
 
-// 学习：停止摄像头的所有轨道，同时取消尚未完成的录制。已完成的样本仍保留在 samples 中。
+// Stop all camera tracks and cancel unfinished recording; completed samples remain available.
 function stopCamera() {
   generation++;
   running = false;
@@ -160,32 +160,32 @@ function stopCamera() {
   latestFace = null;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   $("placeholder").hidden = false;
-  $("tracking").textContent = "尚未开启";
-  status("摄像头已关闭。当前页面中的样本仍可导出。");
+  $("tracking").textContent = "Not started";
+  status("Camera stopped. You can still export samples from this page.");
   controls();
 }
 
-// 学习：检查模型结果：没有人脸、关键点不足、无效坐标、正常结果分别给出不同提示。
-// 学习：Number.isFinite 检查数字是否有效；这一步不会识别 Hello 等词语。
+// Report missing faces, incomplete landmarks, invalid coordinates, and successful detection separately.
+// Number.isFinite validates numbers; this step does not recognize words such as Hello.
 function inspectFaceResult(faces, elapsedMs) {
   const face = Array.isArray(faces) ? faces[0] : null;
-  if (!face) return { face: null, valid: false, title: "未检测到人脸",
-    message: `MediaPipe 已运行，输入 ${inputCanvas.width} × ${inputCanvas.height}，但没有返回人脸（${elapsedMs} 毫秒/帧）。请让完整脸部占画面约三分之一，并增加正面光线。` };
+  if (!face) return { face: null, valid: false, title: "No face detected",
+    message: `MediaPipe processed ${inputCanvas.width} x ${inputCanvas.height} input but found no face (${elapsedMs} ms/frame). Keep your whole face in about one third of the image and improve front lighting.` };
   const points = face.keypoints;
   if (!Array.isArray(points) || points.length < 468) return { face, valid: false,
-    title: "已找到人脸 · 关键点不完整",
-    message: `已返回人脸，但只有 ${points?.length || 0} 个关键点，需要至少 468 个。请关闭摄像头后重新开启。` };
+    title: "Face found - incomplete landmarks",
+    message: `Face found with only ${points?.length || 0} landmarks; at least 468 are required. Stop and restart the camera.` };
   const badXY = points.filter(p => !p || !Number.isFinite(p.x) || !Number.isFinite(p.y)).length;
   const badZ = points.filter(p => !p || !Number.isFinite(p.z)).length;
-  if (badXY || badZ) return { face, valid: false, title: "已找到人脸 · 坐标异常",
-    message: `模型返回 ${points.length} 个点，但有 ${badXY} 个平面坐标、${badZ} 个深度值无效。不是没有找到脸；请把这行提示发给我。` };
-  return { face, valid: true, title: "● 嘴唇跟踪中",
-    message: `MediaPipe · ${points.length} 个关键点 · ${elapsedMs} 毫秒/帧。` +
-      (elapsedMs >= 450 ? "检测偏慢，可能无法通过录制质量检查。请关闭其他摄像头程序和繁忙页面。" : "跟踪正常，可以录制样本。") };
+  if (badXY || badZ) return { face, valid: false, title: "Face found - invalid coordinates",
+    message: `The model returned ${points.length} points, but ${badXY} XY coordinates and ${badZ} depth values are invalid. A face was detected; share this diagnostic message when reporting the issue.` };
+  return { face, valid: true, title: "● Tracking lips",
+    message: `MediaPipe · ${points.length} landmarks · ${elapsedMs} ms/frame. ` +
+      (elapsedMs >= 450 ? "Detection is slow and may fail recording quality checks. Close other camera apps and busy tabs." : "Tracking is ready. You can record samples.") };
 }
 
-// 学习：把摄像头当前帧复制到 inputCanvas，按真实像素尺寸交给模型。
-// 学习：它与画绿色点的 canvas 是两张不同的画布，模型不会读取绿色点。
+// Copy the current camera frame to inputCanvas at its actual pixel dimensions.
+// This is separate from the green-dot overlay, so the model never sees the dots.
 function captureInputFrame() {
   const width = video.videoWidth;
   const height = video.videoHeight;
@@ -201,13 +201,13 @@ function captureInputFrame() {
   return true;
 }
 
-// 学习：【核心 2：连续检测】取一帧画面 → 找脸 → 画嘴唇点 → 如果正在录制就保存这一帧。
-// 学习：while 在摄像头运行期间重复执行；await 等当前检测结束，避免多次检测同时进行。
-// 学习：每帧保存的是全部面部关键点。后续训练前才选取嘴唇点并做坐标校正。
+// Core 2: capture a frame -> detect a face -> draw lip points -> save the frame if recording.
+// while repeats while the camera runs; await prevents overlapping detection calls.
+// Save all face landmarks per frame; select and normalize lip points before training.
 async function detectLoop(token) {
   try {
     while (running && token === generation) {
-      // 只处理新的视频帧，避免重复保存同一张画面。
+      // Process only new video frames to avoid saving duplicate images.
       if (video.currentTime === lastVideoTime || video.readyState < 2) {
         await new Promise(resolve => setTimeout(resolve, 20));
         continue;
@@ -215,7 +215,7 @@ async function detectLoop(token) {
       lastVideoTime = video.currentTime;
       const capturedAt = performance.now();
       if (!captureInputFrame()) continue;
-// 学习：【模型真正工作的位置】把一帧图像送给 FaceMesh，返回检测到的人脸数组；空数组表示没有找到脸。
+// Model inference: pass an image to FaceMesh; an empty result array means no face was found.
       const faces = await model.detect(inputCanvas);
       if (token !== generation) return;
       const report = inspectFaceResult(faces, Math.round(performance.now() - capturedAt));
@@ -223,19 +223,19 @@ async function detectLoop(token) {
       latestFace = valid ? face : null;
       latestTime = capturedAt;
       $("tracking").textContent = report.title;
-      // 完整诊断只保留在本页；不记录或上传人脸坐标日志。
+      // Diagnostics stay on this page; face coordinate logs are neither recorded nor uploaded.
       const category = report.title;
       if ($("status").dataset.trackingCategory !== category) {
         status(report.message, !valid);
         $("status").dataset.trackingCategory = category;
       }
       drawFace(latestFace);
-// 学习：只有录制阶段才收集数据；?. 表示 operation 不存在时不继续访问 phase，避免报错。
+// Collect data only while recording; ?. avoids accessing phase when operation does not exist.
       if (operation?.phase === "recording") {
         const time = capturedAt - operation.started;
         if (time >= 0 && time <= DURATION) {
           operation.attempts++;
-// 学习：保存相对录制开始的时间，以及关键点的 x/y/z 数组；toFixed(3) 保留三位小数。
+// Save relative time and landmark x/y/z arrays; toFixed(3) retains three decimal places.
           if (valid) operation.frames.push({
             timeMs: Math.round(time),
             keypoints: face.keypoints.map(p => [p.x, p.y, p.z].map(v => Number(v.toFixed(3))))
@@ -248,12 +248,12 @@ async function detectLoop(token) {
   } catch (error) {
     if (token !== generation) return;
     stopCamera();
-    status(`嘴唇跟踪中断：${error.message}。可以重新开启摄像头。`, true);
+    status(`Lip tracking interrupted: ${error.message}. You can restart the camera.`, true);
   }
 }
 
-// 学习：在覆盖层画绿色嘴唇点。clearRect 清掉上一帧，arc 画圆，fill 填充颜色。
-// 学习：画点只是展示，不会训练模型，也不会改变保存的数据。
+// Draw green lip dots on the overlay: clearRect clears, arc creates circles, and fill colors them.
+// Dots are visual only; they neither train the model nor change saved data.
 function drawFace(face) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!face) return;
@@ -266,15 +266,15 @@ function drawFace(face) {
   }
 }
 
-// 学习：【核心 3：录一个样本】保存当前标签，先倒计时 3 秒，再录制 2 秒。
-// 学习：item 是本次录制对象；phase 区分 countdown（准备）与 recording（录制）。
-// 学习：tick 定时更新倒计时和进度；具体坐标由 detectLoop 在每次检测后保存。
+// Core 3: keep the selected label, count down for 3 seconds, then record for 2 seconds.
+// item represents this recording; phase distinguishes countdown from recording.
+// tick updates the countdown and progress; detectLoop saves coordinates after each detection.
 function beginRecording() {
   if (!running || operation || !latestFace || performance.now() - latestTime > 700) return;
   const item = { label: $("label").value, phase: "countdown", deadline: performance.now() + 3000, frames: [], attempts: 0 };
   operation = item;
   $("record-status").classList.remove("error");
-  $("record-status").textContent = "准备好，倒计时结束后开始。";
+  $("record-status").textContent = "Get ready. Begin after the countdown.";
   $("cue").hidden = false;
   $("progress").value = 0;
   controls();
@@ -286,13 +286,13 @@ function beginRecording() {
         $("cue").textContent = Math.ceil((item.deadline - now) / 1000);
       } else {
         if (!latestFace || now - latestTime > 700) {
-          cancelRecording("没有稳定检测到人脸，请调整位置后重录。", true);
+          cancelRecording("Face tracking is unstable. Adjust your position and record again.", true);
           return;
         }
         item.phase = "recording";
         item.started = now;
-        $("cue").textContent = item.label === "No speech" ? "开始 · 自然放松" : `开始 · ${item.label}`;
-        $("record-status").textContent = "录制中，请完成一次动作。";
+        $("cue").textContent = item.label === "No speech" ? "Go - relax naturally" : `Go - ${item.label}`;
+        $("record-status").textContent = "Recording. Complete one action.";
       }
     } else {
       $("progress").value = Math.min(DURATION, now - item.started);
@@ -303,9 +303,9 @@ function beginRecording() {
   tick();
 }
 
-// 判断整段动作是否有足够的时间覆盖，而不只是总帧数。
-// 学习：检查样本质量：有效帧至少 12 个，有效率至少 80%，最大时间缺口不超过 450 毫秒。
-// 学习：这些是采集质量规则，不是神经网络学出来的参数。
+// Check coverage across the entire action, not just the total frame count.
+// Quality rules: at least 12 valid frames, 80% valid attempts, and no gap exceeding 450 ms.
+// These are capture quality rules, not learned neural network parameters.
 function assessFrames(frames, attempts) {
   const times = [0, ...frames.map(frame => frame.timeMs), DURATION];
   const maxGap = Math.max(...times.slice(1).map((time, i) => time - times[i]));
@@ -314,9 +314,9 @@ function assessFrames(frames, attempts) {
     validFrames: frames.length, attemptedFrames: attempts, maxGapMs: maxGap, validRatio };
 }
 
-// 学习：录制结束：检查通过后，把一个完整动作放入 samples 数组。
-// 学习：一个样本包含 label 标签和 frames 帧序列；不要把每帧当成独立的词语样本。
-// 学习：push 往数组末尾添加元素；unsaved 提醒用户有尚未导出的数据。
+// Finish recording: add the complete action to samples only after quality checks pass.
+// A sample contains a label and a frame sequence; individual frames are not independent word samples.
+// push appends an item; unsaved reminds the user to export.
 function finishRecording(item) {
   if (operation !== item) return;
   const quality = assessFrames(item.frames, item.attempts);
@@ -324,21 +324,21 @@ function finishRecording(item) {
   $("cue").hidden = true;
   $("progress").value = DURATION;
   if (!quality.accepted) {
-    $("record-status").textContent = `未保存：有效帧 ${quality.validFrames}，最长缺口 ${quality.maxGapMs} 毫秒。请保持脸部可见，等跟踪稳定后重录。`;
+    $("record-status").textContent = `Not saved: ${quality.validFrames} valid frames, longest gap ${quality.maxGapMs} ms. Keep your face visible and record again once tracking is stable.`;
     $("record-status").classList.add("error");
   } else {
     samples.push({ id: crypto.randomUUID(), label: item.label, sessionId,
       recordedAt: new Date().toISOString(), durationMs: DURATION,
       videoSize: { width: canvas.width, height: canvas.height }, quality, frames: item.frames });
     unsaved = true;
-    $("record-status").textContent = `已添加“${item.label}” · ${quality.validFrames} 帧。记得导出数据。`;
+    $("record-status").textContent = `Added ${item.label} · ${quality.validFrames} frames. Remember to export your data.`;
     renderSamples();
   }
   controls();
 }
 
-// 学习：取消当前录制并清理计时器，不删除已经完成的样本。
-function cancelRecording(message = "本次录制已取消。", error = false) {
+// Cancel the active recording and clear its timer without deleting completed samples.
+function cancelRecording(message = "Recording canceled.", error = false) {
   if (!operation) return;
   clearTimeout(operation.timer);
   operation = null;
@@ -349,35 +349,35 @@ function cancelRecording(message = "本次录制已取消。", error = false) {
   controls();
 }
 
-// 学习：刷新每个类别的数量和最近 12 个样本。filter 筛选，map 把数据变成页面元素。
-// 学习：这里仅更新显示，不会修改模型，也不是训练过程。
+// Refresh class counts and the latest 12 samples; filter selects data and map creates elements.
+// This updates the display only; it does not change or train the model.
 function renderSamples() {
   $("counts").replaceChildren(...LABELS.map(label => {
     const row = document.createElement("div");
     row.className = "count" + (label === $("label").value ? " selected" : "");
     const text = document.createElement("span"); text.textContent = label;
-    const count = document.createElement("strong"); count.textContent = `${samples.filter(sample => sample.label === label).length} 次`;
+    const count = document.createElement("strong"); count.textContent = `${samples.filter(sample => sample.label === label).length} samples`;
     row.append(text, count); return row;
   }));
-  $("total").textContent = `共 ${samples.length} 个样本 · ${unsaved ? "有未导出的数据" : "录制后请导出备份"}`;
+  $("total").textContent = `${samples.length} samples · ${unsaved ? "Unexported changes" : "Export a backup after recording"}`;
   const list = samples.slice(-12).reverse().map(sample => {
     const row = document.createElement("li");
     row.textContent = sample.label;
     const detail = document.createElement("span");
-    detail.textContent = `${sample.frames.length} 帧 · ${new Date(sample.recordedAt).toLocaleTimeString("zh-CN")} · 2 秒`;
+    detail.textContent = `${sample.frames.length} frames · ${new Date(sample.recordedAt).toLocaleTimeString("en-US")} · 2 seconds`;
     row.append(detail); return row;
   });
   if (!list.length) {
     const empty = document.createElement("li"); empty.className = "empty";
-    empty.textContent = "还没有样本。开启摄像头后，录下第一个词语。"; list.push(empty);
+    empty.textContent = "No samples yet. Start the camera and record your first word."; list.push(empty);
   }
   $("samples").replaceChildren(...list);
   controls();
 }
 
-// 学习：【核心 4：导出数据】把 samples 和模型版本等说明一起存成 JSON 文件。
-// 学习：JSON.stringify 把对象转换为文字；Blob 把这些文字包装为可下载的文件。
-// 学习：下载后要确认文件保存成功。刷新页面会清空内存，当前版本没有导入功能。
+// Core 4: save samples and detector version information together as JSON.
+// JSON.stringify converts objects to text; Blob packages that text as downloadable data.
+// Confirm the downloaded file was saved. Reloading clears in-memory samples.
 function exportData() {
   if (!samples.length) return;
   const data = { schemaVersion: 1, task: "silent-word-landmarks", exportedAt: new Date().toISOString(),
@@ -393,10 +393,10 @@ function exportData() {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   unsaved = false;
   renderSamples();
-  $("total").textContent = `共 ${samples.length} 个样本 · 已发起下载，请确认文件保存成功`;
+  $("total").textContent = `${samples.length} samples · Download started; confirm the file was saved`;
 }
 
-// 学习：【最后：连接按钮】addEventListener 把页面点击交给对应函数，例如开启摄像头调用 startCamera。
+// Connect buttons: addEventListener routes clicks to functions, such as startCamera.
 $("start").addEventListener("click", startCamera);
 $("stop").addEventListener("click", stopCamera);
 $("record").addEventListener("click", beginRecording);
@@ -405,15 +405,15 @@ $("export").addEventListener("click", exportData);
 $("undo").addEventListener("click", () => { if (operation) return; samples.pop(); unsaved = true; renderSamples(); });
 $("label").addEventListener("change", () => {
   $("label-hint").textContent = $("label").value === "No speech"
-    ? "这次不说词语，保持自然放松，作为No speech的样本。"
-    : "不要发声，也不必夸张嘴型。每次只说一个完整词语。";
+    ? "Stay naturally relaxed without speaking for a No speech sample."
+    : "Speak silently without exaggerating your lip movements. Say one complete word per recording.";
   renderSamples();
 });
-// 学习：切到后台时取消本次录制，避免浏览器暂停处理导致动作不完整。
+// Cancel recording when hidden to avoid incomplete actions caused by browser throttling.
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) cancelRecording("页面切到后台，本次录制已取消，请回到页面重录。");
+  if (document.hidden) cancelRecording("Recording canceled because the page was hidden. Return to this page and record again.");
 });
-// 学习：关闭或刷新前，如果有未导出数据，请求浏览器显示离开提醒。
+// Ask the browser to warn before leaving or reloading when unexported samples exist.
 window.addEventListener("beforeunload", event => {
   if (unsaved && samples.length) { event.preventDefault(); event.returnValue = ""; }
 });

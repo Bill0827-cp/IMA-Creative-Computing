@@ -1,4 +1,4 @@
-// 无需安装依赖：在本文件夹运行 node serve.cjs，然后打开打印的网址。
+// No dependencies required: run node serve.cjs here and open the printed URL.
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -14,7 +14,7 @@ const server = http.createServer((req, res) => {
     res.end(data);
   });
 });
-server.on('error', error => { console.error(`无法启动：${error.message}。可换一个端口：node serve.cjs 8001`); process.exitCode = 1; });
+server.on('error', error => { console.error(`Unable to start: ${error.message}. Try another port: node serve.cjs 8001`); process.exitCode = 1; });
 server.listen(Number(process.argv[2]) || 8000, '127.0.0.1', () => {
-  console.log(`唇语采集页面：http://127.0.0.1:${server.address().port}`);
+  console.log(`Lip capture page: http://127.0.0.1:${server.address().port}`);
 });
