@@ -55,6 +55,7 @@ function controls() {
   $("undo").disabled = !samples.length || !!operation || wordModel.busy;
   $("label").disabled = !!operation || wordModel.busy;
   $("train").disabled = !samples.length || !!operation || wordModel.busy;
+  $("export-model").disabled = !wordModel.ready || wordModel.busy || !!operation || wordModel.trainedRevision !== wordModel.revision;
   $("import").disabled = !!operation || wordModel.busy;
   $("predict").disabled = !running || !freshFace || !!operation || wordModel.busy || !wordModel.ready;
 }
@@ -711,10 +712,29 @@ async function trainWords() {
     candidate = null;
     wordModel.ready = true;
     wordModel.trainedRevision = wordModel.revision;
-    trainingMessage("训练完成。重新开启摄像头，点击“录制新动作并预测”。模型暂存本页，刷新后需要重新训练。");
+    trainingMessage("训练完成。可以点击“导出模型（用于 p5）”保存模型，或重新开启摄像头并录制新动作进行预测。");
   } catch (error) {
     candidate?.dispose();
     trainingMessage(`训练失败：${error.message}`, true);
+  } finally {
+    wordModel.busy = false;
+    controls();
+  }
+}
+
+// 保存训练好的模型，不会替代原始样本的 JSON 导出。
+async function exportWordModel() {
+  if (!wordModel.ready || wordModel.busy || operation ||
+      wordModel.trainedRevision !== wordModel.revision) return;
+  wordModel.busy = true;
+  controls();
+  const output = $("model-export-status");
+  output.textContent = "正在导出模型……";
+  try {
+    await wordModel.classifier.save("model");
+    output.textContent = "已发起下载，请确认保存了 model.json、model_meta.json 和 model.weights.bin 三个文件；如被拦截，请允许下载多个文件后重试。将它们一起上传到 p5 项目，与 sketch.js 同级。";
+  } catch (error) {
+    output.textContent = `导出失败：${error.message}。可以再次点击导出。`;
   } finally {
     wordModel.busy = false;
     controls();
@@ -791,6 +811,7 @@ async function importSamples(event) {
 }
 
 $("train").addEventListener("click", trainWords);
+$("export-model").addEventListener("click", exportWordModel);
 $("predict").addEventListener("click", () => beginRecording("predict"));
 $("import").addEventListener("change", importSamples);
 renderSamples();

@@ -61,7 +61,8 @@
       <div class="symbol" aria-hidden="true">✳</div><h2 id="train-title">从动作中学习</h2>
       <p>四个类别各至少 5 个样本。先从完整动作中留出测试数据，再训练 50 轮。正式实验建议每类 30–50 次。</p>
       
-      <div class="camera-actions"><button id="train" class="primary" disabled>整理数据并训练</button></div>
+      <div class="camera-actions"><button id="train" class="primary" disabled>整理数据并训练</button><button id="export-model" disabled>导出模型（用于 p5）</button></div>
+      <p id="model-export-status" class="small" role="status" aria-live="polite">训练完成后可下载模型结构、元数据和权重三个文件。浏览器询问时请允许下载多个文件。</p>
       <progress id="training-progress" max="50" value="0" aria-label="训练进度"></progress>
       <p id="training-status" role="status" aria-live="polite">尚未训练。可先导入数据，或开启摄像头采集。</p>
       <p id="evaluation">训练后显示留出测试结果及每个词的正确数。</p>
@@ -80,7 +81,7 @@
       <p>训练完成后重新开启摄像头，点击下面按钮，倒计时后无声说一个词。这里不需要选择正确标签，也不会把新动作加入训练数据。</p>
       <button id="predict" class="primary" disabled>录制新动作并预测</button>
       <p id="prediction" class="result" role="status" aria-live="polite">训练后，再录制新动作进行预测。</p>
-      <p class="small">模型和样本暂存在本页，刷新后需要导入样本并重新训练。目前输出文字和分数，尚未加入朗读。</p>
+      <p class="small">模型和样本暂存在本页。导出的模型可在 p5 示例中加载；本页刷新后仍需导入样本并重新训练。目前输出文字和分数，尚未加入朗读。</p>
     </section>
         <aside class="tip"><strong>一次完整动作，一个样本</strong><p>这里识别的是两秒内嘴型的变化。训练结束后重新开启摄像头，录制一次新动作来测试。</p></aside>
       </div>
