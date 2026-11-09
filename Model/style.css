@@ -1,0 +1,473 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
+/* 骨架画布绝对定位覆盖视频；pointer-events:none 让点击穿过画布。它不再镜像，因为特征转换已镜像。 */
+#overlay {
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  pointer-events:none
+}
+#tracking {
+  padding:0 14px;
+  margin:0 0 14px;
+  font-size:12px
+}
+#save-model {
+  width:100%
+}
+/* 全局字体、文字和背景颜色；系统字体是在线字体加载失败后的后备。 */
+:root {
+  font-family:'DM Sans',system-ui,sans-serif;
+  color:#26382f;
+  background:#f4f5f0;
+  font-synthesis:none
+}
+/* border-box 让声明的宽高包含 padding 和 border，布局更容易控制。 */
+* {
+  box-sizing:border-box
+}
+body {
+  margin:0
+}
+button,input {
+  font:inherit
+}
+button {
+  border:1px solid #d5ddd3;
+  border-radius:8px;
+  background:#fff;
+  padding:10px 14px;
+  color:#26382f;
+  font-weight:600;
+  cursor:pointer
+}
+/* :hover 是鼠标悬停；:not(:disabled) 排除禁用按钮。下面 focus-visible 给键盘操作显示焦点。 */
+button:hover:not(:disabled) {
+  background:#e8efdf
+}
+button:disabled {
+  opacity:.45;
+  cursor:not-allowed
+}
+button:focus-visible,input:focus-visible {
+  outline:3px solid #739b4e;
+  outline-offset:3px
+}
+/* 顶部栏用 Flex 横向排布；justify-content:space-between 把品牌和操作区放在两端。 */
+header {
+  min-height:83px;
+  padding:20px 4%;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  border-bottom:1px solid #dce1d6;
+  background:#fafbf7;
+  gap:20px
+}
+.brand {
+  font-size:22px;
+  font-weight:700;
+  color:inherit;
+  text-decoration:none
+}
+.brand span {
+  font-size:10px;
+  letter-spacing:2px;
+  margin-left:18px;
+  color:#73816c
+}
+.tools {
+  display:flex;
+  gap:8px
+}
+main {
+  max-width:1530px;
+  margin:auto;
+  padding:40px 4% 20px
+}
+.eyebrow {
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:2px;
+  color:#668345
+}
+h1 {
+  font-size:clamp(28px,3vw,42px);
+  letter-spacing:-1.4px;
+  margin:12px 0
+}
+p {
+  line-height:1.6;
+  color:#6a756a
+}
+.intro>p:last-child {
+  margin-bottom:27px
+}
+#status {
+  padding:13px 17px;
+  background:#e7eddd;
+  border:1px solid #d9e3cc;
+  border-radius:9px;
+  font-size:13px;
+  margin-bottom:32px
+}
+#status.error {
+  background:#fff0e9;
+  color:#a53e29;
+  border-color:#e8b9a9
+}
+/* 主工作区用 Grid 分三列。minmax 设置每列最小宽度和比例；fr 分配剩余空间。 */
+.workspace {
+  display:grid;
+  grid-template-columns:minmax(290px,1.35fr) minmax(240px,.85fr) minmax(260px,1fr);
+  gap:26px;
+  align-items:start
+}
+.section-heading {
+  display:flex;
+  gap:12px;
+  align-items:center;
+  margin-bottom:18px
+}
+.section-heading>span {
+  font-size:11px;
+  border:1px solid #cad4c1;
+  padding:6px 8px;
+  border-radius:6px;
+  color:#728263
+}
+h2 {
+  font-size:18px;
+  margin:0
+}
+h3 {
+  font-size:16px;
+  margin:0 0 12px
+}
+.card {
+  background:#fff;
+  border:1px solid #dce1d7;
+  border-radius:13px;
+  box-shadow:0 4px 15px #26382f04;
+  margin-bottom:16px;
+  overflow:hidden
+}
+/* relative 给绝对定位的骨架提供定位基准；aspect-ratio 先设4:3，启动视频后JS按真实尺寸更新。 */
+.camera {
+  position:relative;
+  aspect-ratio:4/3;
+  background:#26392f;
+  overflow:hidden
+}
+/* scaleX(-1) 只把视频视觉上左右镜像；骨架的镜像由 hand-features.js 计算。 */
+video {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  transform:scaleX(-1)
+}
+#placeholder {
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  color:#cbd6be;
+  font-size:28px
+}
+#placeholder[hidden] {
+  display:none
+}
+#placeholder strong {
+  font-size:16px;
+  margin:12px
+}
+small {
+  font-size:12px
+}
+.camera-tag {
+  position:absolute;
+  bottom:12px;
+  left:14px;
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:#fff;
+  background:#152a25aa;
+  padding:6px;
+  border-radius:4px
+}
+.camera-controls {
+  padding:13px;
+  display:flex;
+  gap:8px
+}
+.camera-controls button:first-child {
+  flex:1
+}
+/* --color 是 app.js 为每张卡设置的 CSS 变量，用来统一类别边框与分数条颜色。 */
+.class-card {
+  padding:17px;
+  border-left:4px solid var(--color)
+}
+.class-top {
+  display:flex;
+  align-items:center;
+  gap:10px
+}
+.class-top input {
+  width:100%;
+  min-width:0;
+  font-weight:700;
+  border:0;
+  background:transparent;
+  padding:6px;
+  border-radius:4px
+}
+.class-top button {
+  padding:5px 10px
+}
+.class-meta {
+  font-size:12px;
+  color:#73816c;
+  margin:8px 0
+}
+.class-actions {
+  display:flex;
+  gap:8px
+}
+.class-actions button:first-child {
+  flex:1;
+  background:#f0f3e9
+}
+/* Flex 横向放置缩略图；overflow:hidden 防止内容撑破卡片。 */
+.thumbs {
+  display:flex;
+  gap:5px;
+  margin-top:12px;
+  overflow:hidden;
+  min-height:0
+}
+.thumbs canvas {
+  width:36px;
+  height:36px;
+  border-radius:4px;
+  image-rendering:pixelated
+}
+.add {
+  width:100%;
+  border-style:dashed;
+  background:transparent;
+  padding:16px
+}
+.training,.preview {
+  padding:24px
+}
+.symbol {
+  font-size:48px;
+  color:#779c53;
+  margin:2px 0 24px
+}
+.training p {
+  font-size:13px
+}
+.training label {
+  display:block;
+  font-size:12px;
+  font-weight:700;
+  margin:24px 0 8px
+}
+.training input {
+  width:100%;
+  padding:10px;
+  border:1px solid #d5ddd3;
+  border-radius:7px
+}
+.primary {
+  background:#314b35;
+  color:#fff;
+  border-color:#314b35
+}
+.primary:hover:not(:disabled) {
+  background:#456047
+}
+.training button,#predict {
+  width:100%;
+  margin:16px 0
+}
+progress {
+  width:100%;
+  height:7px;
+  accent-color:#759a4c
+}
+.divider {
+  height:1px;
+  background:#e6eadf;
+  margin:24px 0
+}
+.small {
+  font-size:12px!important
+}
+.preview-heading {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px
+}
+.preview-heading h3 {
+  margin:0
+}
+.badge {
+  font-size:9px;
+  letter-spacing:.5px;
+  background:#eff2e8;
+  padding:6px;
+  border-radius:5px
+}
+.result {
+  background:#f2f5e9;
+  border-radius:9px;
+  text-align:center;
+  padding:37px 10px;
+  margin-top:24px
+}
+.result p {
+  font-size:9px;
+  letter-spacing:1.6px
+}
+.result h2 {
+  font-size:27px;
+  overflow-wrap:anywhere
+}
+.result>span {
+  font-size:12px;
+  color:#73816c;
+  display:block;
+  margin-top:10px
+}
+.score {
+  margin:17px 0
+}
+.score-label {
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  gap:12px;
+  overflow-wrap:anywhere
+}
+.track {
+  height:9px;
+  background:#f0f2eb;
+  margin-top:7px;
+  border-radius:5px;
+  overflow:hidden
+}
+/* JS 修改 width 显示模型分数；transition 让宽度变化更平滑，不影响预测算法。 */
+.fill {
+  height:100%;
+  width:0;
+  background:var(--color);
+  transition:width .15s
+}
+footer {
+  border-top:1px solid #dce1d6;
+  margin-top:48px;
+  padding:20px 0;
+  font-size:11px;
+  color:#7d8778;
+  display:flex;
+  justify-content:space-between;
+  gap:20px
+}
+/* 响应式布局：窗口小于等于1000像素时改成两列，并调整三块区域的位置。 */
+@media(max-width:1000px) {
+  .workspace {
+    grid-template-columns:1.2fr 1fr
+  }
+  .workspace>section:last-child {
+    grid-column:2;
+    grid-row:1
+  }
+  .workspace>section:nth-child(2) {
+    grid-column:2
+  }
+  .workspace>section:first-child {
+    grid-row:1 / span 2
+  }
+  .brand span {
+    display:none
+  }
+}
+/* 手机窄屏改为纵向排列，每块占满宽度。 */
+@media(max-width:680px) {
+  header {
+    flex-wrap:wrap
+  }
+  .workspace {
+    display:flex;
+    flex-direction:column
+  }
+  .workspace>section {
+    width:100%
+  }
+  main {
+    padding:25px 5%
+  }
+  footer {
+    flex-direction:column
+  }
+  .tools button {
+    font-size:12px
+  }
+}
+
+/* 唇语页面的适配。上方沿用 Model2 的颜色、字体、按钮和卡片布局。
+   注意：FaceMesh 原始坐标没有镜像，因此这里视频与骨架都需要镜像。 */
+:root { font-family:'DM Sans',system-ui,-apple-system,'Microsoft YaHei',sans-serif; }
+[hidden] { display:none!important; }
+.column { min-width:0; }
+.panel { padding:22px; }
+.panel h2 { font-size:16px; }
+.panel p { font-size:13px; overflow-wrap:anywhere; }
+.panel-title,.camera-actions,.actions { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.panel-title { margin-bottom:16px; }
+#tracking { padding:0; margin:0; font-size:11px; }
+.stage { position:relative; aspect-ratio:4/3; background:#26392f; border-radius:9px; overflow:hidden; }
+.stage video,.stage #overlay { position:absolute; inset:0; width:100%; height:100%; transform:scaleX(-1); }
+#placeholder { gap:8px; font-size:14px; text-align:center; padding:15px; }
+#placeholder strong { margin:0; }
+#placeholder span:last-child { font-size:12px; }
+.camera-icon { font-size:44px; }
+.stage-label { position:absolute; bottom:12px; left:12px; font-size:10px; color:white; background:#152a25aa; padding:5px 8px; border-radius:4px; }
+#cue { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:#0003; color:white; font-size:30px; font-weight:700; text-shadow:0 2px 12px #000; pointer-events:none; }
+.camera-actions { margin-top:16px; }
+.camera-actions button:first-child { flex:1; }
+.full { display:block; width:100%; margin-top:12px; }
+label { display:block; font-size:12px; margin:12px 0 8px; }
+select,input[type=file] { font:inherit; width:100%; min-width:0; padding:11px; border:1px solid #d5ddd3; border-radius:8px; color:#26382f; background:white; }
+input[type=file] { font-size:12px; }
+select:focus-visible { outline:3px solid #739b4e; outline-offset:3px; }
+.counts { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:18px 0; }
+.count { display:flex; justify-content:space-between; gap:8px; padding:12px; border:1px solid #e1e5dc; border-left:4px solid #b2bf77; border-radius:8px; font-size:12px; }
+.count:nth-child(2) { border-left-color:#c4a3d7; }
+.count:nth-child(3) { border-left-color:#e4ac78; }
+.count:nth-child(4) { border-left-color:#83b9b2; }
+.count.selected { background:#eef3e5; }
+.instructions { padding-left:20px; font-size:12px; line-height:1.9; color:#6a756a; }
+.hint { background:#f2f5e9; border-radius:8px; padding:12px; }
+progress { margin-top:16px; }
+#record-status,#training-status { min-height:2em; font-size:12px; }
+.error { color:#a53e29; }
+#evaluation { border-top:1px solid #e6eadf; padding-top:18px; margin-top:22px; line-height:1.8; }
+#prediction { padding:28px 15px; font-size:18px; line-height:1.8; color:#314b35; white-space:pre-line; overflow-wrap:anywhere; }
+#samples { list-style:none; margin:16px 0 0; padding:0; display:grid; gap:8px; max-height:340px; overflow-y:auto; }
+#samples li { padding:12px; background:#f4f6ee; border-radius:8px; font-size:13px; }
+#samples li span { display:block; margin-top:4px; color:#73816c; font-size:11px; }
+#samples .empty { text-align:center; color:#73816c; }
+.tip { padding:20px; border:1px dashed #cbd6bf; border-radius:12px; }
+.tip strong { font-size:13px; }
+.tip p { font-size:12px; margin-bottom:0; }
+.tools { align-items:center; flex-wrap:wrap; }
+/* Model 使用 column 容器：按采集、训练、预测顺序折叠，避免改变操作顺序。 */
+@media(max-width:1100px) { .workspace { grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); } .column:first-child { grid-row:span 2; } }
+@media(max-width:760px) { .workspace { display:flex; flex-direction:column; } .column { width:100%; } header { flex-wrap:wrap; } main { padding:25px 5%; } footer { flex-direction:column; } }

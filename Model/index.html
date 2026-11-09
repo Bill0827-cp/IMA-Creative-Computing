@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teaching Studio · 唇语实验室</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="get_data.js"></script>
+</head>
+<body>
+  <!-- 与 Model2 统一视觉；保留所有原有 id，继续使用原来的唇语业务代码。 -->
+  <header>
+    <a class="brand" href="./">◈ Teaching Studio <span>ML5 / LIP LAB</span></a>
+    <div class="tools"><button id="export" disabled>导出 JSON 数据</button><span class="badge">唇语实验室</span></div>
+  </header>
+  <main>
+    <section class="intro">
+      <p class="eyebrow">让嘴唇的动作，成为学习的起点</p>
+      <h1>先教它，看懂你的无声表达。</h1>
+      <p>采集嘴唇动作，训练自己的模型，再试试它学会了什么。所有步骤都在这个页面完成。</p>
+    </section>
+    <p id="status" role="status" aria-live="polite">准备好后，开启摄像头。首次加载嘴唇跟踪模型需要联网。</p>
+    <!-- 左侧采集、中间训练、右侧预测；窄屏按照相同顺序纵向排列。 -->
+    <div class="workspace">
+      <div class="column">
+        <div class="section-heading"><span>01</span><h2>采集动作</h2></div>
+        <section class="card panel camera-panel" aria-labelledby="camera-title">
+        <div class="panel-title"><h2 id="camera-title">摄像头与嘴唇跟踪</h2><span id="tracking">尚未开启</span></div>
+        <div class="stage">
+          <video id="camera" autoplay playsinline muted aria-label="摄像头实时画面"></video>
+          <canvas id="overlay" aria-label="嘴唇关键点覆盖层"></canvas>
+          <div id="placeholder"><span class="camera-icon" aria-hidden="true">◎</span><strong>把你的脸放在画面中央</strong><span>只使用摄像头，不采集声音</span></div>
+          <div id="cue" hidden></div>
+          <span class="stage-label">镜像预览 · 原始坐标保存</span>
+        </div>
+        <div class="camera-actions"><button id="start" class="primary">开启摄像头</button><button id="stop" disabled>关闭摄像头</button></div>
+        
+        <p class="small">保持光线明亮、正对镜头。看到绿色嘴唇点后，再开始录制。</p>
+      </section>
+        <section class="card panel collect-panel" aria-labelledby="collect-title">
+        <div class="panel-title"><h2 id="collect-title">录制一个词语</h2></div>
+        <label for="label">这次你要说什么？</label>
+        <select id="label"><option>Hello</option><option>Thank U</option><option>Omg</option><option>No speech</option></select>
+        <div id="counts" class="counts" aria-label="每类样本数量"></div>
+        <ol class="instructions"><li>点击录制，等待 <strong>3 秒倒计时</strong>。</li><li>看到“开始”后，在 <strong>2 秒内无声说一次</strong>。</li><li>自然放松，等待样本检查并保存到本页。</li></ol>
+        <p id="label-hint" class="hint">不要发声，也不必夸张嘴型。每次只说一个完整词语。</p>
+        <button id="record" class="primary full" disabled>录制样本</button>
+        <button id="cancel" class="full" hidden>取消本次录制</button>
+        <progress id="progress" max="2000" value="0" aria-label="录制进度"></progress>
+        <p id="record-status" role="status" aria-live="polite">请先开启摄像头，等待检测到人脸。</p>
+      </section>
+        <section class="card panel dataset" aria-labelledby="data-title">
+      <div class="panel-title"><div><h2 id="data-title">我的样本</h2><p id="total">还没有样本</p></div><div class="actions"><button id="undo" disabled>撤销最后一个</button></div></div>
+      <p class="small">数据暂存在当前页面，刷新或关闭前请导出。导出的是带时间戳的关键点坐标，不是视频；本页面不上传采集数据。</p>
+      <ul id="samples"><li class="empty">录制完成后，这里会显示词语、有效帧数和时间。</li></ul>
+    </section>
+      </div>
+      <div class="column">
+        <div class="section-heading"><span>02</span><h2>训练模型</h2></div>
+        <section class="card panel training" aria-labelledby="train-title">
+      <div class="symbol" aria-hidden="true">✳</div><h2 id="train-title">从动作中学习</h2>
+      <p>四个类别各至少 5 个样本。先从完整动作中留出测试数据，再训练 50 轮。正式实验建议每类 30–50 次。</p>
+      
+      <div class="camera-actions"><button id="train" class="primary" disabled>整理数据并训练</button></div>
+      <progress id="training-progress" max="50" value="0" aria-label="训练进度"></progress>
+      <p id="training-status" role="status" aria-live="polite">尚未训练。可先导入数据，或开启摄像头采集。</p>
+      <p id="evaluation">训练后显示留出测试结果及每个词的正确数。</p>
+    </section>
+        <section class="card panel import-panel" aria-label="打开已有数据集">
+          <h3>继续之前的实验</h3>
+          <p class="small">打开之前导出的 JSON，继续整理、采集和训练。</p>
+          <label for="import">继续使用之前导出的数据（JSON）</label>
+      <input id="import" type="file" accept=".json,application/json">
+        </section>
+      </div>
+      <div class="column">
+        <div class="section-heading"><span>03</span><h2>试试识别</h2></div>
+        <section class="card panel preview" aria-labelledby="predict-title">
+      <h2 id="predict-title">识别新的嘴唇动作</h2>
+      <p>训练完成后重新开启摄像头，点击下面按钮，倒计时后无声说一个词。这里不需要选择正确标签，也不会把新动作加入训练数据。</p>
+      <button id="predict" class="primary" disabled>录制新动作并预测</button>
+      <p id="prediction" class="result" role="status" aria-live="polite">训练后，再录制新动作进行预测。</p>
+      <p class="small">模型和样本暂存在本页，刷新后需要导入样本并重新训练。目前输出文字和分数，尚未加入朗读。</p>
+    </section>
+        <aside class="tip"><strong>一次完整动作，一个样本</strong><p>这里识别的是两秒内嘴型的变化。训练结束后重新开启摄像头，录制一次新动作来测试。</p></aside>
+      </div>
+    </div>
+    <footer><span>Built with ml5.js · 唇语动作学习实验</span><span>样本保存在当前页面。刷新前请先导出数据。</span></footer>
+  </main>
+</body>
+</html>

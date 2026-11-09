@@ -1,0 +1,119 @@
+<!-- 页面结构文件：HTML定义元素；CSS负责外观；app.js通过id查找元素并响应操作。 -->
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- UTF-8支持中文；viewport使手机按设备宽度布局。 -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teaching Studio · ml5</title>
+<link rel="stylesheet" href="style.css">
+  <!-- defer让脚本等HTML解析后按顺序执行。必须先加载坐标工具，再加载依赖它的app.js。ml5由app.js按需加载。 -->
+<script defer src="hand-features.js">
+</script>
+<script defer src="app.js">
+</script>
+</head>
+<body>
+<!-- 顶部工具：导出数据集和选择JSON文件。隐藏的file输入框由Open dataset按钮触发。 -->
+<header>
+<a class="brand" href="./">◈ Teaching Studio <span>ML5 / HAND SIGN LAB</span>
+</a>
+<div class="tools">
+<button id="export">Save dataset</button>
+<button id="import">Open dataset</button>
+<input id="file" type="file" accept="application/json,.json" hidden>
+</div>
+</header>
+<main>
+  <div class="intro">
+<p class="eyebrow">A LITTLE DATA. A NEW WAY TO SEE.</p>
+<h1>Teach your camera your hand signs.</h1>
+<p>Name your signs, collect hand poses, and train your own neural network. All in your browser.</p>
+</div>
+  <!-- 顶部动态提示区。role=status和aria-live帮助屏幕阅读器读出状态更新。 -->
+<div id="status" role="status" aria-live="polite">Start your camera, then collect at least 10 examples for each class.</div>
+  <!-- 三个阶段放在同一页：采集、训练、预测。class用于CSS选择，id用于JS定位。 -->
+<div class="workspace">
+    <section aria-labelledby="collect-title">
+<div class="section-heading">
+<span>01</span>
+<h2 id="collect-title">Gather examples</h2>
+</div>
+      <div class="card camera-card">
+<div class="camera">
+<!-- video显示摄像头；muted防止播放音频；playsinline避免移动端强制全屏。canvas在其上绘制关键点。 -->
+<video id="camera" autoplay muted playsinline>
+</video>
+<canvas id="overlay" aria-label="Detected hand landmarks">
+</canvas>
+<div id="placeholder">◉<br>
+<strong>Your camera goes here</strong>
+<small>Video only. No microphone.</small>
+</div>
+<span class="camera-tag">LIVE INPUT · MIRRORED</span>
+</div>
+<div class="camera-controls">
+<button id="start">Enable camera</button>
+<button id="stop" disabled>Stop</button>
+</div>
+<p id="tracking" role="status">Tracking off</p>
+</div>
+      <!-- 这个容器初始为空：renderClasses()根据classes数组动态创建卡片。不要在此硬编码每个手势。 -->
+<div id="classes">
+</div>
+<button id="add" class="add">＋ Add a class</button>
+    </section>
+    <!-- 训练区域：epochs是轮数，train是按钮，progress是真实训练回调更新的进度条。disabled初始禁用，数据够了才启用。 -->
+<section aria-labelledby="train-title">
+<div class="section-heading">
+<span>02</span>
+<h2 id="train-title">Train</h2>
+</div>
+<div class="card training">
+<div class="symbol">✳</div>
+<h3>Examples → understanding</h3>
+<p>Try different angles and positions. Aim for 30–50 examples per class.</p>
+<label for="epochs">Training epochs</label>
+<input id="epochs" type="number" min="1" max="200" value="50">
+<button id="train" class="primary" disabled>Train model</button>
+<progress id="progress" value="0" max="50" aria-label="Training progress">
+</progress>
+<p id="training-status">Waiting for your examples</p>
+<div class="divider">
+</div>
+<strong id="total">0 examples · 3 classes</strong>
+<p class="small">HandPose finds 21 landmarks. Your neural network learns from their 42 x/y coordinates. Use one hand and static poses; rename Rock, Paper, and Scissors to your own signs.</p>
+</div>
+</section>
+    <!-- 预测区域：winner显示类别名；confidence显示最高分；results由renderScores动态生成各类别分数条。 -->
+<section aria-labelledby="preview-title">
+<div class="section-heading">
+<span>03</span>
+<h2 id="preview-title">Try it out</h2>
+</div>
+<div class="card preview">
+<div class="preview-heading">
+<h3>Live prediction</h3>
+<span id="model-state" class="badge">UNTRAINED</span>
+</div>
+<div class="result">
+<p>YOUR MODEL SEES</p>
+<h2 id="winner">Ready to learn.</h2>
+<span id="confidence">Train your model to begin</span>
+</div>
+<button id="predict" disabled>Start preview</button>
+<button id="save-model" disabled>Save trained model</button>
+<div id="results">
+</div>
+<p class="small">Scores show the model’s preference, not guaranteed accuracy. Test with new examples it has never seen.</p>
+</div>
+</section>
+  </div>
+  <!-- 页脚提示：采集数据默认只在当前网页内存，刷新前需要导出。 -->
+<footer>
+<span>Built with ml5.js · Inspired by The Coding Train & Teachable Machine</span>
+<span>Samples stay on this device. Save before refreshing.</span>
+</footer>
+</main>
+</body>
+</html>
