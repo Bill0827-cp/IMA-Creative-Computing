@@ -13,6 +13,9 @@
 <section id="cameraPanel" hidden><div class="panel-head"><h2>对准与校准</h2><button id="stop">关闭相机</button></div><div class="camera-wrap"><video id="video" autoplay muted playsinline></video><div id="reticle"></div></div><label>取样框大小 <input id="crop" type="range" min="30" max="95" value="75"> <span>保持图片边缘与取样框平行，让图片填满框。</span></label><div class="actions"><button id="capture" class="primary">取样图片并归零</button><button id="zero">以当前位置归零</button></div><p id="tracking">上下平移手机，保持手机与图片平行。</p></section>
 </section>
 <aside><div class="panel-head"><h2>光栅设置</h2><span>01 — CALIBRATE</span></div>
+<section class="analysis-panel"><h2>交错原图分析</h2><p id="analysisResult" role="status">上传交错后的原图，自动估计条纹方向与像素周期。</p><button id="analyze">分析当前图片</button><div id="candidates" class="actions"></div><small>周期不等于帧数。帧数仍需填写；起点偏移需观察校准。重复纹理也可能产生候选结果。</small></section>
+<label for="pitchMode">解码依据</label><select id="pitchMode"><option value="physical">LPI + 实际尺寸</option><option value="pixels">图片像素周期（无需打印尺寸）</option></select>
+<label for="pixelPitch">一个完整交错周期 <span>px</span></label><input id="pixelPitch" type="number" min="2" max="4096" step="0.01" value="6"><small id="pitchHint">上传后可使用估计的像素周期直接预览。以下 LPI 与尺寸仅在物理参数模式参与解码。</small>
 <label for="lpi">光栅密度 <span>LPI</span></label><div class="presets"><button data-lpi="20">20</button><button data-lpi="40">40</button><button data-lpi="60">60</button><button data-lpi="75">75</button><button data-lpi="100">100</button></div><input id="lpi" type="number" min="1" max="300" step="0.1" value="20">
 <label for="size">图片实际跨度 <span>mm</span></label><input id="size" type="number" min="1" max="2000" step="0.1" value="127"><small>横条纹填图片高度；竖条纹填宽度。取样时填框内区域对应的实际尺寸。</small>
 <label for="frames">交错帧数</label><input id="frames" type="number" min="2" max="32" step="1" value="6">

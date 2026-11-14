@@ -5,10 +5,27 @@ const probe=document.createElement('canvas');probe.width=120;probe.height=90;con
 let stream=null,reference=null,pixels=null,angle=0,lastTime=0,dirty=true,sensor=false,baseTilt=null,lastTilt=null,sourceName='内置交错示例',generation=0;
 const settings=()=>({lpi:C.clamp(Number($('lpi').value)||20,1,300),mm:C.clamp(Number($('size').value)||127,1,2000),frames:C.clamp(Math.round(Number($('frames').value)||6),2,32),axis:$('axis').value,phase:Number($('phase').value)/100});
 function status(message){$('status').textContent=message;}
+function applyCandidate(candidate){
+  $('axis').value=candidate.axis;
+  $('pixelPitch').value=candidate.period;
+  $('pitchMode').value='pixels';
+  $('phase').value=0;$('phaseValue').textContent='0%';dirty=true;
+}
+function analyzeCurrent(){
+  if(!pixels)return;
+  const result=C.analyzeInterlacing(pixels),best=result.candidates[0];
+  $('candidates').replaceChildren();
+  if(!best){$('analysisResult').textContent='未找到清晰的周期证据，保留当前解码设置。请手动填写像素周期，或使用 LPI + 实际尺寸。检测范围为 2–95 px；模糊、缩放和非整数周期可能无法识别。';return;}
+  const label=c=>`${c.axis==='y'?'横条纹':'竖条纹'} · ${c.period} px`;
+  if(result.reliable){applyCandidate(best);$('analysisResult').textContent=`估计：${label(best)}，已用于预览。周期证据较强，但不保证是交错编码；请确认帧数并检查效果。`;}
+  else $('analysisResult').textContent='周期证据较弱或存在多个可能方向，未自动更改设置。点击候选结果试看，或手动设置。';
+  for(const candidate of result.candidates){const button=document.createElement('button');button.type='button';button.textContent=label(candidate);button.onclick=()=>{applyCandidate(candidate);$('analysisResult').textContent=`正在试用：${label(candidate)}。请确认帧数，必要时调整起点偏移。`;};$('candidates').append(button);}
+}
+$('analyze').onclick=analyzeCurrent;
 function setAngle(value){angle=C.clamp(value,-30,30);$('angle').value=angle;$('angleValue').textContent=`${angle.toFixed(1)}°`;dirty=true;}
-function commitSource(name){pixels=sc.getImageData(0,0,source.width,source.height);sourceName=name;$('modeLabel').textContent=name;dirty=true;}
+function commitSource(name){$('pitchMode').value='physical';$('candidates').replaceChildren();$('analysisResult').textContent='可分析当前图片的条纹方向与周期。';pixels=sc.getImageData(0,0,source.width,source.height);sourceName=name;$('modeLabel').textContent=name;dirty=true;}
 function demo(){const w=900,h=600,n=6,period=6;source.width=w;source.height=h;const views=[];for(let f=0;f<n;f++){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle=`hsl(${145+f*9} 28% ${15+f*2}%)`;g.fillRect(0,0,w,h);g.strokeStyle='#d8f1a7';g.lineWidth=2;for(let j=0;j<9;j++){g.beginPath();g.ellipse(450+(f-2.5)*40,290,65+j*26,65+j*14,(f-2.5)*.15,0,Math.PI*2);g.stroke();}g.fillStyle='#e2f3bd';g.beginPath();g.arc(270+f*70,260+Math.sin(f)*65,46,0,Math.PI*2);g.fill();g.fillStyle='#f3f5df';g.font='bold 46px sans-serif';g.fillText(['看','见','另','一','个','我'][f],420,505);g.font='14px monospace';g.fillText(`PERSPECTIVE 0${f+1} / 06`,355,548);views.push(c);}for(let y=0;y<h;y++)sc.drawImage(views[y%period],0,y,w,1,0,y,w,1);$('lpi').value=20;$('size').value=127;$('frames').value=6;$('axis').value='y';$('phase').value=0;$('phaseValue').textContent='0%';commitSource('内置交错示例');setAngle(0);status('示例包含 6 个交错视图。拖动角度滑块，观察画面变化。');}
-function render(){if(!pixels)return;const s=settings(),vertical=s.axis==='y',length=vertical?source.height:source.width,pitch=C.pitch(length,s.lpi,s.mm),frame=C.frameAt(angle,s.frames,$('reverse').checked);output.width=source.width;output.height=source.height;ctx.imageSmoothingEnabled=false;if($('original').checked)ctx.drawImage(source,0,0);else{const dest=ctx.createImageData(source.width,source.height),a=pixels.data,b=dest.data;for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){const pos=C.sampleIndex(vertical?y:x,pitch,frame,s.frames,s.phase,length),i=((vertical?pos:y)*source.width+(vertical?x:pos))*4,j=(y*source.width+x)*4;b[j]=a[i];b[j+1]=a[i+1];b[j+2]=a[i+2];b[j+3]=a[i+3];}ctx.putImageData(dest,0,0);}$('frameLabel').textContent=`VIEW ${String(frame+1).padStart(2,'0')} / ${s.frames}`;$('quality').textContent=`每周期 ${pitch.toFixed(2)} px · 每帧条纹 ${(pitch/s.frames).toFixed(2)} px。${pitch/s.frames<1?'分辨率不足：每帧条纹小于 1 像素，无法可靠恢复，请使用更高分辨率原图。':pitch/s.frames<2?'接近像素极限；拍摄时容易混色，建议导入原图。':'可调整起点偏移，让条纹取样对齐。'}`;}
+function render(){if(!pixels)return;const s=settings(),vertical=s.axis==='y',length=vertical?source.height:source.width,pitch=$('pitchMode').value==='pixels'?C.clamp(Number($('pixelPitch').value)||6,2,4096):C.pitch(length,s.lpi,s.mm),frame=C.frameAt(angle,s.frames,$('reverse').checked);output.width=source.width;output.height=source.height;ctx.imageSmoothingEnabled=false;if($('original').checked)ctx.drawImage(source,0,0);else{const dest=ctx.createImageData(source.width,source.height),a=pixels.data,b=dest.data;for(let y=0;y<source.height;y++)for(let x=0;x<source.width;x++){const pos=C.sampleIndex(vertical?y:x,pitch,frame,s.frames,s.phase,length),i=((vertical?pos:y)*source.width+(vertical?x:pos))*4,j=(y*source.width+x)*4;b[j]=a[i];b[j+1]=a[i+1];b[j+2]=a[i+2];b[j+3]=a[i+3];}ctx.putImageData(dest,0,0);}$('frameLabel').textContent=`VIEW ${String(frame+1).padStart(2,'0')} / ${s.frames}`;$('quality').textContent=`每周期 ${pitch.toFixed(2)} px · 每帧条纹 ${(pitch/s.frames).toFixed(2)} px。${pitch/s.frames<1?'分辨率不足：每帧条纹小于 1 像素，无法可靠恢复，请使用更高分辨率原图。':pitch/s.frames<2?'接近像素极限；拍摄时容易混色，建议导入原图。':'可调整起点偏移，让条纹取样对齐。'}`;}
 function gray(){if($('video').readyState<2)return null;pc.drawImage($('video'),0,0,120,90);const data=pc.getImageData(0,0,120,90).data,result=new Float32Array(120*90);for(let i=0;i<result.length;i++)result[i]=data[i*4]*.299+data[i*4+1]*.587+data[i*4+2]*.114;return result;}
 function zero(){reference=stream?gray():null;baseTilt=lastTilt;setAngle(0);$('tracking').textContent=reference?'已归零。小幅移动手机；超出范围后再次归零。':'等待相机画面。';}
 function stopCamera(){generation++;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;reference=null;$('video').srcObject=null;$('cameraPanel').hidden=true;$('camera').disabled=false;}
@@ -17,9 +34,21 @@ $('stop').onclick=()=>{stopCamera();status('相机已关闭，仍可用滑块观
 $('crop').oninput=()=>{const inset=(100-Number($('crop').value))/2;$('reticle').style.inset=`${inset}%`;};
 $('capture').onclick=()=>{const v=$('video');if(!stream||v.readyState<2){status('请等待摄像头画面。');return;}const ratio=Number($('crop').value)/100,w=Math.round(v.videoWidth*ratio),h=Math.round(v.videoHeight*ratio);const scale=Math.min(1,1800/Math.max(w,h));source.width=Math.round(w*scale);source.height=Math.round(h*scale);sc.drawImage(v,(v.videoWidth-w)/2,(v.videoHeight-h)/2,w,h,0,0,source.width,source.height);commitSource('摄像头取样');zero();status('取样完成。请设置框内实际尺寸、LPI 和帧数，然后小幅移动手机。');};
 $('zero').onclick=zero;
-$('upload').onchange=async event=>{const file=event.target.files[0];if(!file)return;const url=URL.createObjectURL(file);try{const img=new Image();img.src=url;await img.decode();if(img.naturalWidth*img.naturalHeight>40e6)throw new Error('图片过大，请使用 4000 万像素以内图片');const scale=Math.min(1,4096/Math.max(img.naturalWidth,img.naturalHeight));source.width=Math.round(img.naturalWidth*scale);source.height=Math.round(img.naturalHeight*scale);sc.drawImage(img,0,0,source.width,source.height);commitSource(file.name);setAngle(0);status(`已导入原始交错图。请填写它的制作参数。${scale<1?'图片已缩小至最长边 4096 像素，细条纹可能损失。':''}`);}catch(error){status(`无法读取图片：${error.message}`);}finally{URL.revokeObjectURL(url);event.target.value='';}};
+$('upload').onchange=async event=>{
+  const file=event.target.files[0];if(!file)return;
+  const url=URL.createObjectURL(file);
+  try{
+    const img=new Image();img.src=url;await img.decode();
+    if(img.naturalWidth*img.naturalHeight>40e6)throw new Error('图片过大，请使用 4000 万像素以内图片');
+    const scale=Math.min(1,4096/Math.max(img.naturalWidth,img.naturalHeight));
+    source.width=Math.round(img.naturalWidth*scale);source.height=Math.round(img.naturalHeight*scale);
+    sc.drawImage(img,0,0,source.width,source.height);commitSource(file.name);setAngle(0);analyzeCurrent();
+    status(`已导入交错后的图片。请查看分析结果，并确认制作时的帧数。${scale<1?'图片已缩小至最长边 4096 像素，细条纹可能损失，分析结果可能不可靠。':''}`);
+  }catch(error){status(`无法读取图片：${error.message}`);}
+  finally{URL.revokeObjectURL(url);event.target.value='';}
+};
 $('demo').onclick=demo;$('angle').oninput=()=>{sensor=false;$('sensor').textContent='启用倾斜控制（可选）';reference=null;setAngle(Number($('angle').value));};
-for(const id of ['lpi','size','frames','axis','phase','reverse','original','gain'])$(id).addEventListener('input',()=>{dirty=true;$('phaseValue').textContent=`${$('phase').value}%`;$('gainValue').textContent=`${Number($('gain').value).toFixed(1)}×`;});
+for(const id of ['lpi','size','frames','axis','phase','reverse','original','gain','pitchMode','pixelPitch'])$(id).addEventListener('input',()=>{dirty=true;$('phaseValue').textContent=`${$('phase').value}%`;$('gainValue').textContent=`${Number($('gain').value).toFixed(1)}×`;});
 document.querySelectorAll('[data-lpi]').forEach(b=>b.onclick=()=>{$('lpi').value=b.dataset.lpi;dirty=true;});
 $('sensor').onclick=async()=>{if(sensor){sensor=false;$('sensor').textContent='启用倾斜控制（可选）';status('倾斜控制已关闭。');return;}try{if(!window.isSecureContext||!window.DeviceOrientationEvent)throw new Error('当前环境不支持，请使用 HTTPS 手机浏览器');if(typeof DeviceOrientationEvent.requestPermission==='function'&&await DeviceOrientationEvent.requestPermission()!=='granted')throw new Error('未获得方向传感器权限');sensor=true;baseTilt=null;reference=null;$('sensor').textContent='关闭倾斜控制';status('倾斜控制已开启，等待传感器数据；没有响应时可使用滑块。');}catch(e){status(e.message);}};
 window.addEventListener('deviceorientation',e=>{const value=$('axis').value==='y'?e.beta:e.gamma;if(!Number.isFinite(value))return;lastTilt=value;if(!sensor)return;if(baseTilt===null)baseTilt=value;const delta=((value-baseTilt+540)%360)-180;setAngle(angle*.75+delta*Number($('gain').value)*.25);});
