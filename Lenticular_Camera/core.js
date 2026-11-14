@@ -49,6 +49,32 @@
       return this.visible;
     }
   }
-  const api={clamp,viewingAngle,targetQuad,homography,RevealGate};
+  class RevealBlend{
+    constructor(){this.reset();}
+    reset(){this.opacity=0;this.lastTime=null;}
+    update(angle,threshold,width,eligible,now){
+      const dt=this.lastTime===null?0:clamp(now-this.lastTime,0,100);this.lastTime=now;
+      const start=Math.max(1,threshold-width/2),end=threshold+width/2;
+      const t=eligible&&Number.isFinite(angle)?clamp((angle-start)/(end-start),0,1):0;
+      const target=t*t*t*(t*(t*6-15)+10); // Zero slope and curvature at both endpoints.
+      this.opacity+=(target-this.opacity)*(1-Math.exp(-dt/(eligible?150:45)));
+      if(Math.abs(this.opacity-target)<.001)this.opacity=target;
+      return this.opacity;
+    }
+  }
+  class QuadSmoother{
+    constructor(){this.reset();}
+    reset(){this.points=null;this.lastTime=null;}
+    update(points,now){
+      if(points.some(p=>!p||!p.every(Number.isFinite))){this.reset();return null;}
+      if(!this.points){this.points=points.map(p=>[...p]);this.lastTime=now;return this.points;}
+      const dt=clamp(now-this.lastTime,0,100);this.lastTime=now;
+      const distance=Math.max(...points.map((p,i)=>Math.hypot(p[0]-this.points[i][0],p[1]-this.points[i][1])));
+      // Filter small jitter; follow deliberate motion quickly to avoid a floating overlay.
+      const tau=distance>35?12:55,weight=1-Math.exp(-dt/tau);
+      this.points=this.points.map((p,i)=>p.map((v,j)=>v+(points[i][j]-v)*weight));return this.points;
+    }
+  }
+  const api={clamp,viewingAngle,targetQuad,homography,RevealGate,RevealBlend,QuadSmoother};
   if(typeof module!=='undefined')module.exports=api;else root.WallView=api;
 })(typeof window==='undefined'?globalThis:window);

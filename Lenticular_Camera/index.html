@@ -10,7 +10,7 @@
       <div class="panel-head"><h2>手机观看窗口</h2><span id="viewState">等待上传双图</span></div>
       <div id="stage" class="stage">
         <div id="empty"><span class="view-icon">⌖</span><h3>把墙上的画，变成入口</h3><p>上传两张普通图片，打开摄像头。<br>无需交错处理，也无需填写 LPI。</p></div>
-        <div id="testPreview" hidden><img id="testImage" alt="手动测试画面"><span>手动测试 · 非摄像头识别</span></div>
+        <div id="testPreview" hidden><div id="testFrame"><img id="testImage" alt="墙图 A"><img id="testReveal" alt="渐显图片 B"></div><span>手动测试 · 非摄像头识别</span></div>
       </div>
       <p id="status" role="status" aria-live="polite">先上传墙图 A，再上传蹲下时要看见的图片 B。</p>
       <div class="actions"><button id="start" class="primary" disabled>打开摄像头并识别墙图</button><button id="stop" disabled>关闭摄像头</button></div>
@@ -22,7 +22,8 @@
       <label class="upload-card" for="imageA"><span class="number">A</span><img id="thumbA" alt="墙上图片预览" hidden><div><strong>墙上的图片</strong><small id="nameA">选择与墙上印刷图一致的原图</small></div><input id="imageA" type="file" accept="image/*"></label>
       <label class="upload-card" for="imageB"><span class="number">B</span><img id="thumbB" alt="隐藏图片预览" hidden><div><strong>蹲下才出现的图片</strong><small id="nameB">选择要覆盖在墙图上的另一张图</small></div><input id="imageB" type="file" accept="image/*"></label>
       <p class="note">图片在本机处理，不上传。刷新后需重新选择。A 请使用清晰、有丰富细节的普通图片。</p>
-      <label for="threshold">触发仰角 <output id="thresholdValue">12°</output></label><input id="threshold" type="range" min="5" max="45" step="1" value="12"><small>相对站立校准位置。记录蹲下视角会自动调整，也可手动微调。</small>
+      <label for="threshold">过渡中心仰角 <output id="thresholdValue">12°</output></label><input id="threshold" type="range" min="5" max="45" step="1" value="12"><small>相对站立校准位置。在中心角度附近，两张画面逐渐交融。</small>
+      <label for="blendWidth">过渡角度范围 <output id="blendWidthValue">12°</output></label><input id="blendWidth" type="range" min="4" max="24" step="1" value="12"><small>范围越大，蹲下过程中变化越缓慢。默认约从 6° 开始，到 18° 完全显现。</small>
       <div class="rule"><span>站立／平视</span><b>保留相机真实画面</b><span>蹲下／仰视</span><b>在墙图上显示 B</b></div>
       <details><summary>不打开摄像头，先测试两张图</summary><label class="check"><input id="manual" type="checkbox" disabled>开启手动测试（会关闭摄像头）</label><label for="testAngle">模拟仰角 <output id="testValue">0°</output></label><input id="testAngle" type="range" min="0" max="50" value="0"><small>测试只检查双图切换，不代表已识别墙图。</small></details>
       <details><summary>布置与使用提示</summary><p>把 A 平整地贴在竖直墙面上，图片正面朝外、顶部朝上。站立与蹲下时都尽量让完整图片留在镜头里。保持光线均匀，避免反光和纯色、大面积重复纹理。</p><p>识别的是相机相对图片的视角，不是年龄或身体姿势。站着把手机降到低处，也会触发；蹲下却把手机举在原位，则不会触发。</p><p>B 会随墙图位置与透视变化。两图比例不同时，B 居中裁切以填满墙图。识别丢失时隐藏 B。</p></details>

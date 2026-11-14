@@ -1,6 +1,6 @@
 'use strict';
 const $=id=>document.getElementById(id);
-const images={A:null,B:null},gate=new WallView.RevealGate();
+const images={A:null,B:null},blend=new WallView.RevealBlend();
 let frame=null,busy=false,loadCount=0,hasBaseline=false,watchdog=null;
 function status(text){$('status').textContent=text;}
 function ready(){return !!images.A&&!!images.B;}
@@ -11,7 +11,7 @@ function controls(){
 function clearSession(){
   clearTimeout(watchdog);watchdog=null;
   if(frame){frame.remove();frame=null;} // The frame owns camera, workers and GPU resources.
-  busy=false;hasBaseline=false;gate.reset();$('stand').disabled=true;$('crouch').disabled=true;
+  busy=false;hasBaseline=false;blend.reset();$('stand').disabled=true;$('crouch').disabled=true;
   $('tracking').textContent='未启动';$('angle').textContent='—';$('content').textContent='真实画面';
   $('empty').hidden=false;$('viewState').textContent=ready()?'双图已就绪':'等待上传双图';controls();
 }
@@ -50,11 +50,12 @@ $('start').onclick=()=>{
 };
 $('stop').onclick=()=>{clearSession();status('摄像头已关闭。两张图片仍保留，可再次开始。');};
 $('stand').onclick=()=>send('calibrate-standing');$('crouch').onclick=()=>send('calibrate-crouching');
-$('threshold').oninput=()=>{$('thresholdValue').textContent=$('threshold').value+'°';gate.reset();send('threshold',{value:Number($('threshold').value)});};
+$('threshold').oninput=()=>{$('thresholdValue').textContent=$('threshold').value+'°';send('threshold',{value:Number($('threshold').value)});};
+$('blendWidth').oninput=()=>{$('blendWidthValue').textContent=$('blendWidth').value+'°';send('blend-width',{value:Number($('blendWidth').value)});};
 window.addEventListener('message',event=>{
   if(!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
   const message=event.data;if(!message||typeof message.type!=='string')return;
-  if(message.type==='ready')send('initialize',{target:images.A.blob,reveal:images.B.blob,threshold:Number($('threshold').value)});
+  if(message.type==='ready')send('initialize',{target:images.A.blob,reveal:images.B.blob,threshold:Number($('threshold').value),blendWidth:Number($('blendWidth').value)});
   if(message.type==='status')status(message.text);
   if(message.type==='started'){clearTimeout(watchdog);watchdog=null;status('摄像头已开启。对准墙上的 A，识别稳定后点击「记录站立视角」。');}
   if(message.type==='error'){clearSession();status(message.text);}
@@ -65,20 +66,24 @@ window.addEventListener('message',event=>{
   }
   if(message.type==='tracking'){
     $('tracking').textContent=message.tracked?'已识别 A':'寻找墙图 A';$('angle').textContent=Number.isFinite(message.angle)?message.angle.toFixed(1)+'°':'—';
-    $('content').textContent=message.visible?'隐藏图片 B':'真实画面';$('viewState').textContent=message.visible?'儿童视角 · B':message.tracked?'已锁定墙图':'请对准墙图';
+    const amount=Math.round((message.opacity||0)*100);
+    $('content').textContent=amount>0?`图片 B · ${amount}%`:'真实画面';$('viewState').textContent=amount>=99?'儿童视角 · B':amount>0?'视角渐变中':message.tracked?'已锁定墙图':'请对准墙图';
     $('stand').disabled=!message.stable;$('crouch').disabled=!message.stable||!hasBaseline;
   }
 });
 $('manual').onchange=()=>{
-  clearSession();gate.reset();$('testPreview').hidden=!$('manual').checked;$('empty').hidden=$('manual').checked;
+  clearSession();blend.reset();$('testPreview').hidden=!$('manual').checked;$('empty').hidden=$('manual').checked;
   if($('manual').checked){$('viewState').textContent='手动测试';status('拖动模拟仰角测试切换。此模式不使用摄像头，也不进行墙图识别。');}
 };
 $('testAngle').oninput=()=>{$('testValue').textContent=$('testAngle').value+'°';};
 function preview(time){
   if($('manual').checked&&ready()){
-    const visible=gate.update(Number($('testAngle').value),Number($('threshold').value),true,time),src=images[visible?'B':'A'].url;
-    if($('testImage').src!==src)$('testImage').src=src;
-    $('content').textContent=visible?'隐藏图片 B':'墙图 A（测试）';$('angle').textContent=$('testAngle').value+'°';
+    const opacity=blend.update(Number($('testAngle').value),Number($('threshold').value),Number($('blendWidth').value),true,time);
+    if($('testImage').src!==images.A.url)$('testImage').src=images.A.url;
+    if($('testReveal').src!==images.B.url)$('testReveal').src=images.B.url;
+    const stage=$('stage'),ratio=images.A.width/images.A.height,w=Math.min(stage.clientWidth,stage.clientHeight*ratio);
+    $('testFrame').style.width=w+'px';$('testFrame').style.height=w/ratio+'px';$('testReveal').style.opacity=String(opacity);
+    $('content').textContent=opacity>.001?`图片 B · ${Math.round(opacity*100)}%`:'墙图 A（测试）';$('angle').textContent=$('testAngle').value+'°';
   }
   requestAnimationFrame(preview);
 }

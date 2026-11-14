@@ -35,3 +35,20 @@ gate.update(20,12,true,1200);assert.equal(gate.update(20,12,true,1600),true);
 assert.equal(gate.update(20,12,false,1601),false); // target loss hides immediately
 assert.equal(gate.update(null,12,true,1700),false);
 console.log('PASS: standing/crouching geometry, camera rotation invariance, projection/crop, perspective overlay, dwell/hysteresis, target loss');
+const {RevealBlend,QuadSmoother}=require('./core.js');
+function settle(angle){const blend=new RevealBlend();for(let t=0;t<=3000;t+=10)blend.update(angle,12,12,true,t);return blend.opacity;}
+close(settle(0),0);close(settle(6),0);close(settle(12),.5);close(settle(18),1);
+assert.ok(settle(9)>0&&settle(9)<.5);assert.ok(settle(15)>.5&&settle(15)<1);
+const blend=new RevealBlend();blend.update(18,12,12,true,0);const first=blend.update(18,12,12,true,16);assert.ok(first>0&&first<.15);
+for(let t=32;t<=2000;t+=16)blend.update(18,12,12,true,t);
+const before=blend.opacity,after=blend.update(0,12,12,true,2016);assert.ok(after>0&&after<before);
+blend.update(18,12,12,false,2032);assert.ok(blend.opacity<after);blend.reset();close(blend.opacity,0);
+function rate(fps){const b=new RevealBlend();b.update(18,12,12,true,0);for(let n=1;n<=fps;n++)b.update(18,12,12,true,n*1000/fps);return b.opacity;}
+assert.ok(Math.abs(rate(30)-rate(60))<.002);
+assert.ok(Math.abs(settle(11.9)-settle(12.1))<.04); // no threshold flicker
+const filter=new QuadSmoother();const a=[[0,0],[100,0],[100,100],[0,100]],b=a.map(([x,y])=>[x+2,y+2]);
+filter.update(a,0);const filtered=filter.update(b,16);assert.ok(filtered[0][0]>0&&filtered[0][0]<2);
+const moved=filter.update(a.map(([x,y])=>[x+100,y]),32);assert.ok(moved[0][0]>70);
+filter.reset();close(filter.update(b,100)[0][0],2);
+assert.equal(filter.update([null,...a.slice(1)],116),null);
+console.log('PASS: continuous blend endpoints/midpoint, smooth reversal, frame-rate independence, jitter filtering and reacquisition reset');
