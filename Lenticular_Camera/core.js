@@ -1,53 +1,54 @@
 (function(root){
   'use strict';
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const mod=(a,b)=>((a%b)+b)%b;
-  function frameAt(angle,frames,reverse=false){const f=clamp(Math.floor((clamp(angle,-30,30)+30)/60*frames),0,frames-1);return reverse?frames-1-f:f;}
-  function pitch(pixels,lpi,mm){return pixels*25.4/(lpi*mm);}
-  function sampleIndex(position,period,frame,frames,phase,limit){const origin=phase*period;const cell=Math.floor((position-origin)/period);return clamp(Math.floor(origin+cell*period+(frame+.5)*period/frames),0,limit-1);}
-  // Absolute displacement against the calibration image; no integration drift.
-  function track(reference,current,width,height,radius=20){let best=Infinity,second=Infinity,bx=0,by=0;let sum=0,sq=0,count=0;for(let y=radius;y<height-radius;y+=3)for(let x=radius;x<width-radius;x+=3){const v=reference[y*width+x];sum+=v;sq+=v*v;count++;}const variance=sq/count-(sum/count)**2;if(!count||variance<35)return {ok:false,dx:0,dy:0,error:Infinity};
-    for(let dy=-radius;dy<=radius;dy+=2)for(let dx=-radius;dx<=radius;dx+=2){let error=0,n=0;for(let y=radius;y<height-radius;y+=3)for(let x=radius;x<width-radius;x+=3){error+=Math.abs(reference[y*width+x]-current[(y+dy)*width+x+dx]);n++;}error/=n;if(error<best){second=best;best=error;bx=dx;by=dy;}else if(error<second)second=error;}
-    return {ok:best<28&&second-best>.08&&Math.abs(bx)<radius&&Math.abs(by)<radius,dx:bx,dy:by,error:best};
-  }
-  // Search native-pixel recurrence. Repeated content can imitate interlacing:
-  // the score describes periodic evidence, not proof of a lenticular encoding.
-  function analyzeInterlacing(image){
-    const {width,height,data}=image;
-    if(width<24||height<24)return {reliable:false,candidates:[],reason:'small'};
-    const candidates=[];
-    for(const axis of ['x','y']){
-      const length=axis==='y'?height:width,cross=axis==='y'?width:height;
-      const maxLag=Math.min(96,Math.floor(length/4)),errors=new Float64Array(maxLag+1);
-      // Fixed pseudorandom positions avoid aliasing between sample stride and stripes.
-      const points=[];let seed=89231;
-      for(let i=0;i<1800;i++){
-        seed=(Math.imul(seed,1664525)+1013904223)>>>0;const p=Math.floor(seed/4294967296*(length-maxLag));
-        seed=(Math.imul(seed,1664525)+1013904223)>>>0;const q=Math.floor(seed/4294967296*cross);
-        points.push(axis==='y'?(p*width+q)*4:(q*width+p)*4);
-      }
-      const step=axis==='y'?width*4:4;
-      for(let lag=1;lag<=maxLag;lag++){
-        let sum=0,count=0;
-        for(const index of points){const other=index+lag*step;if(data[index+3]<240||data[other+3]<240)continue;
-          for(let c=0;c<3;c++)sum+=Math.abs(data[index+c]-data[other+c]);count+=3;
-        }
-        errors[lag]=count?sum/count:0;
-      }
-      const baseline=errors[1];if(baseline<2)continue;
-      for(let lag=2;lag<maxLag;lag++){
-        const error=errors[lag],neighbors=(errors[lag-1]+errors[lag+1])/2;
-        const contrast=1-error/Math.max(neighbors,.01),recovery=1-error/baseline;
-        if(error<=errors[lag-1]&&error<errors[lag+1]&&contrast>.22&&recovery>.3){
-          candidates.push({axis,period:lag,score:Math.max(0,Math.min(contrast,recovery)),error});
-        }
-      }
+  // MindAR: column-major target-to-camera matrix, origin at lower-left, +Y up.
+  function viewingAngle(matrix,width,height){
+    if(!matrix||matrix.length!==16||!matrix.every(Number.isFinite))return null;
+    const t=[matrix[12],matrix[13],matrix[14]],camera=[];
+    for(let axis=0;axis<3;axis++){
+      const c=axis*4,scale=matrix[c]**2+matrix[c+1]**2+matrix[c+2]**2;
+      if(scale<1e-10)return null;
+      camera.push(-(matrix[c]*t[0]+matrix[c+1]*t[1]+matrix[c+2]*t[2])/scale);
     }
-    // Reject harmonics only when the shorter period has comparable evidence.
-    const ranked=candidates.filter(c=>!candidates.some(shorter=>shorter.axis===c.axis&&shorter.period<c.period&&shorter.score>=c.score-.08&&Math.abs(c.period/shorter.period-Math.round(c.period/shorter.period))<.06));
-    ranked.sort((a,b)=>b.score-a.score||a.period-b.period);
-    const best=ranked[0],runner=ranked[1];
-    return {reliable:!!best&&best.score>.65&&(!runner||best.score-runner.score>.15),candidates:ranked.slice(0,4),reason:best?'periodic':'unclear'};
+    if(camera[2]<=0)return null;
+    return Math.atan2(height/2-camera[1],Math.hypot(camera[0]-width/2,camera[2]))*180/Math.PI;
   }
-  const api={clamp,frameAt,pitch,sampleIndex,track,analyzeInterlacing};if(typeof module!=='undefined')module.exports=api;else root.Lens=api;
+  function projectPoint(m,p,x,y){
+    const v=[m[0]*x+m[4]*y+m[12],m[1]*x+m[5]*y+m[13],m[2]*x+m[6]*y+m[14],1],clip=[0,0,0,0];
+    for(let r=0;r<4;r++)for(let c=0;c<4;c++)clip[r]+=p[c*4+r]*v[c];
+    if(clip[3]<=0||!clip.every(Number.isFinite))return null;
+    return [(clip[0]/clip[3]+1)/2,(1-clip[1]/clip[3])/2];
+  }
+  function targetQuad(m,p,width,height,videoWidth,videoHeight,viewWidth,viewHeight){
+    const scale=Math.max(viewWidth/videoWidth,viewHeight/videoHeight),dw=videoWidth*scale,dh=videoHeight*scale;
+    return [[0,height],[width,height],[width,0],[0,0]].map(([x,y])=>{
+      const q=projectPoint(m,p,x,y);return q?[q[0]*dw-(dw-viewWidth)/2,q[1]*dh-(dh-viewHeight)/2]:null;
+    });
+  }
+  function homography(width,height,quad){
+    if(quad.some(p=>!p||!p.every(Number.isFinite)))return null;
+    const points=[[0,0],[width,0],[width,height],[0,height]],a=[];
+    for(let i=0;i<4;i++){const [x,y]=points[i],[u,v]=quad[i];a.push([x,y,1,0,0,0,-u*x,-u*y,u]);a.push([0,0,0,x,y,1,-v*x,-v*y,v]);}
+    for(let col=0;col<8;col++){
+      let pivot=col;for(let r=col+1;r<8;r++)if(Math.abs(a[r][col])>Math.abs(a[pivot][col]))pivot=r;
+      if(Math.abs(a[pivot][col])<1e-9)return null;
+      [a[col],a[pivot]]=[a[pivot],a[col]];const divisor=a[col][col];for(let c=col;c<9;c++)a[col][c]/=divisor;
+      for(let r=0;r<8;r++)if(r!==col){const factor=a[r][col];for(let c=col;c<9;c++)a[r][c]-=factor*a[col][c];}
+    }
+    const h=a.map(row=>row[8]);return [h[0],h[3],0,h[6],h[1],h[4],0,h[7],0,0,1,0,h[2],h[5],0,1];
+  }
+  class RevealGate{
+    constructor(){this.reset();}
+    reset(){this.visible=false;this.pending=null;this.since=0;}
+    update(angle,threshold,eligible,now){
+      if(!eligible||!Number.isFinite(angle)){this.reset();return false;}
+      const desired=this.visible?angle>=threshold-3:angle>=threshold;
+      if(desired===this.visible){this.pending=null;return this.visible;}
+      if(this.pending!==desired){this.pending=desired;this.since=now;}
+      if(now-this.since>=400){this.visible=desired;this.pending=null;}
+      return this.visible;
+    }
+  }
+  const api={clamp,viewingAngle,targetQuad,homography,RevealGate};
+  if(typeof module!=='undefined')module.exports=api;else root.WallView=api;
 })(typeof window==='undefined'?globalThis:window);
