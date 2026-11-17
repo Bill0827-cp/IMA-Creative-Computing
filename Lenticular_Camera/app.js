@@ -1,91 +1,63 @@
-'use strict';
-const $=id=>document.getElementById(id);
-const images={A:null,B:null},blend=new WallView.RevealBlend();
-let frame=null,busy=false,loadCount=0,hasBaseline=false,watchdog=null;
+import {loadPhoto,circularPhoto} from './circular-photo.mjs';
+import {validateCatalog,photoGeometry} from './catalog.mjs';
+import {locateItem,coverQuad} from './tag-pose.mjs';
+import {Detector} from './detector-client.mjs';
+const $=id=>document.getElementById(id),C=window.WallView,video=$('video'),canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});
+let config=null,revision=-1,stream=null,detector=null,running=false,starting=false,session=0,detectTimer=null,lastDetection=0,loading=false;
+const states=new Map();
 function status(text){$('status').textContent=text;}
-function ready(){return !!images.A&&!!images.B;}
-function controls(){
-  $('start').disabled=!ready()||busy||loadCount>0;$('stop').disabled=!frame;$('manual').disabled=!ready()||loadCount>0;
-  for(const key of ['A','B'])$('image'+key).disabled=busy;
+function clearStates(){for(const s of states.values())s.img.remove();states.clear();}
+function controls(){$('start').disabled=starting||running||loading;}
+async function loadCatalog(){
+  if(loading)return;loading=true;
+  try{const response=await fetch('/api/catalog',{cache:'no-store'});if(!response.ok)throw Error('无法获取展览配置');const data=await response.json();const next=validateCatalog(data.config);
+    if(data.revision!==revision){config=next;revision=data.revision;clearStates();if(!running&&!starting)status(config.items.some(i=>i.enabled)?'':'装置暂未开放，请稍后重试。');}
+  }catch(error){if(!running&&!starting)status(config?'':'暂时无法连接，请点击按钮重试。');}finally{loading=false;controls();}
 }
-function clearSession(){
-  clearTimeout(watchdog);watchdog=null;
-  if(frame){frame.remove();frame=null;} // The frame owns camera, workers and GPU resources.
-  busy=false;hasBaseline=false;blend.reset();$('stand').disabled=true;$('crouch').disabled=true;
-  $('tracking').textContent='未启动';$('angle').textContent='—';$('content').textContent='真实画面';
-  $('empty').hidden=false;$('viewState').textContent=ready()?'双图已就绪':'等待上传双图';controls();
-}
-for(const key of ['A','B']){
-  let revision=0;
-  $('image'+key).onchange=async event=>{
-    const file=event.target.files[0];if(!file)return;
-    const token=++revision;loadCount++;controls();const url=URL.createObjectURL(file);
-    try{
-      const img=new Image();img.src=url;await img.decode();
-      if(img.naturalWidth*img.naturalHeight>40e6)throw new Error('请使用 4000 万像素以内的图片');
-      if(Math.min(img.naturalWidth,img.naturalHeight)<64)throw new Error('图片太小，请换用清晰原图');
-      const limit=key==='A'?1000:1800,scale=Math.min(1,limit/Math.max(img.naturalWidth,img.naturalHeight));
-      const canvas=document.createElement('canvas');canvas.width=Math.round(img.naturalWidth*scale);canvas.height=Math.round(img.naturalHeight*scale);
-      const ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));if(!blob)throw new Error('图片转换失败');
-      if(token!==revision)return;
-      clearSession();$('manual').checked=false;$('testPreview').hidden=true;
-      if(images[key])URL.revokeObjectURL(images[key].url);
-      images[key]={blob,url:URL.createObjectURL(blob),width:canvas.width,height:canvas.height};
-      $('thumb'+key).src=images[key].url;$('thumb'+key).hidden=false;$('name'+key).textContent=file.name;
-      $('viewState').textContent=ready()?'双图已就绪':'继续上传另一张图';
-      status(ready()?'两张图已准备好。打开摄像头，站立对准墙上的 A。':'图片已载入，请继续上传另一张。');
-    }catch(e){status(`无法载入图片：${e.message}`);}
-    finally{URL.revokeObjectURL(url);event.target.value='';loadCount--;controls();}
-  };
-}
-function send(type,extra={}){frame?.contentWindow.postMessage({type,...extra},location.origin);}
-$('start').onclick=()=>{
-  if(!ready()||busy)return;
-  if(!isSecureContext||!navigator.mediaDevices?.getUserMedia){status('手机摄像头需要 HTTPS。请用 HTTPS 网站地址打开此页。');return;}
-  clearSession();$('manual').checked=false;$('testPreview').hidden=true;busy=true;
-  frame=document.createElement('iframe');frame.title='墙图识别与视角覆盖';frame.allow='camera';frame.src='ar.html';$('stage').append(frame);$('empty').hidden=true;
-  status('正在启动图片识别。首次加载需要联网，图片和摄像头画面留在本机。');$('viewState').textContent='正在准备';controls();
-  watchdog=setTimeout(()=>{clearSession();status('识别启动超时。请检查网络、相机权限或换用更小的图片，再重试。');},150000);
+function stop(){session++;running=false;starting=false;clearTimeout(detectTimer);detector?.close();detector=null;stream?.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;clearStates();$('startSheet').hidden=false;$('start').textContent='开启摄像头';controls();}
+$('start').onclick=async()=>{
+  if(starting||running||loading)return;if(!isSecureContext||!navigator.mediaDevices?.getUserMedia){status('请通过 HTTPS 地址打开，浏览器才能访问摄像头。');return;}
+  if(!config?.items.some(i=>i.enabled)){await loadCatalog();if(!config?.items.some(i=>i.enabled))return;}
+  const ticket=++session;starting=true;controls();$('start').textContent='正在开启…';status('');
+  try{
+    const acquired=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    if(ticket!==session){acquired.getTracks().forEach(t=>t.stop());return;}stream=acquired;video.srcObject=stream;await video.play();if(ticket!==session)return;
+    detector=new Detector();await detector.init();if(ticket!==session)return;starting=false;running=true;$('startSheet').hidden=true;controls();status('');detectFrame(ticket);
+  }catch(error){if(ticket!==session)return;stop();status(error.name==='NotAllowedError'?'请允许摄像头权限后重试。':`无法启动：${error.message}`);}
 };
-$('stop').onclick=()=>{clearSession();status('摄像头已关闭。两张图片仍保留，可再次开始。');};
-$('stand').onclick=()=>send('calibrate-standing');$('crouch').onclick=()=>send('calibrate-crouching');
-$('threshold').oninput=()=>{$('thresholdValue').textContent=$('threshold').value+'°';send('threshold',{value:Number($('threshold').value)});};
-$('blendWidth').oninput=()=>{$('blendWidthValue').textContent=$('blendWidth').value+'°';send('blend-width',{value:Number($('blendWidth').value)});};
-window.addEventListener('message',event=>{
-  if(!frame||event.source!==frame.contentWindow||event.origin!==location.origin)return;
-  const message=event.data;if(!message||typeof message.type!=='string')return;
-  if(message.type==='ready')send('initialize',{target:images.A.blob,reveal:images.B.blob,threshold:Number($('threshold').value),blendWidth:Number($('blendWidth').value)});
-  if(message.type==='status')status(message.text);
-  if(message.type==='started'){clearTimeout(watchdog);watchdog=null;status('摄像头已开启。对准墙上的 A，识别稳定后点击「记录站立视角」。');}
-  if(message.type==='error'){clearSession();status(message.text);}
-  if(message.type==='calibrated'){
-    hasBaseline=true;
-    if(Number.isFinite(message.threshold)){$('threshold').value=message.threshold;$('thresholdValue').textContent=message.threshold+'°';}
-    status(message.text);
-  }
-  if(message.type==='tracking'){
-    $('tracking').textContent=message.tracked?'已识别 A':'寻找墙图 A';$('angle').textContent=Number.isFinite(message.angle)?message.angle.toFixed(1)+'°':'—';
-    const amount=Math.round((message.opacity||0)*100);
-    $('content').textContent=amount>0?`图片 B · ${amount}%`:'真实画面';$('viewState').textContent=amount>=99?'儿童视角 · B':amount>0?'视角渐变中':message.tracked?'已锁定墙图':'请对准墙图';
-    $('stand').disabled=!message.stable;$('crouch').disabled=!message.stable||!hasBaseline;
-  }
-});
-$('manual').onchange=()=>{
-  clearSession();blend.reset();$('testPreview').hidden=!$('manual').checked;$('empty').hidden=$('manual').checked;
-  if($('manual').checked){$('viewState').textContent='手动测试';status('拖动模拟仰角测试切换。此模式不使用摄像头，也不进行墙图识别。');}
-};
-$('testAngle').oninput=()=>{$('testValue').textContent=$('testAngle').value+'°';};
-function preview(time){
-  if($('manual').checked&&ready()){
-    const opacity=blend.update(Number($('testAngle').value),Number($('threshold').value),Number($('blendWidth').value),true,time);
-    if($('testImage').src!==images.A.url)$('testImage').src=images.A.url;
-    if($('testReveal').src!==images.B.url)$('testReveal').src=images.B.url;
-    const stage=$('stage'),ratio=images.A.width/images.A.height,w=Math.min(stage.clientWidth,stage.clientHeight*ratio);
-    $('testFrame').style.width=w+'px';$('testFrame').style.height=w/ratio+'px';$('testReveal').style.opacity=String(opacity);
-    $('content').textContent=opacity>.001?`图片 B · ${Math.round(opacity*100)}%`:'墙图 A（测试）';$('angle').textContent=$('testAngle').value+'°';
-  }
-  requestAnimationFrame(preview);
+function stateFor(item){
+  if(states.has(item.id))return states.get(item.id);
+  const img=new Image();img.className='ar-overlay';img.alt=item.name+' · 仰视画面';loadPhoto(item.imageB).then(photo=>{if(!img.isConnected)return;img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(circularPhoto(photo.data,photo.width,photo.height,photoGeometry(item).diameter,null,true));}).catch(()=>{img.removeAttribute('src');});img.style.width=photoGeometry(item).diameter+'px';img.style.height=photoGeometry(item).diameter+'px';$('overlayRoot').append(img);
+  const state={img,blend:new C.HeightReveal(),filter:new C.QuadSmoother(),pose:null,last:0,lastTransform:null,lostAt:null};states.set(item.id,state);return state;
 }
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&frame){clearSession();status('页面进入后台，摄像头已关闭。返回后请重新启动并校准。');}});
-window.addEventListener('pagehide',clearSession);controls();requestAnimationFrame(preview);
+async function detectFrame(ticket){
+  if(!running||ticket!==session)return;
+  try{
+    const scale=Math.min(1,960/Math.max(video.videoWidth,video.videoHeight));canvas.width=Math.round(video.videoWidth*scale);canvas.height=Math.round(video.videoHeight*scale);
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);const rgba=ctx.getImageData(0,0,canvas.width,canvas.height).data,gray=new Uint8Array(canvas.width*canvas.height);
+    for(let p=0;p<gray.length;p++)gray[p]=rgba[p*4]*.299+rgba[p*4+1]*.587+rgba[p*4+2]*.114;
+    const version=revision,results=await detector.detect(gray,canvas.width,canvas.height);if(ticket!==session)return;
+    if(version===revision){const now=performance.now();lastDetection=now;for(const item of config.items.filter(i=>i.enabled)){
+      const pose=locateItem(item,results,canvas.width,canvas.height,config.cameraFov),s=pose?stateFor(item):states.get(item.id);if(!s)continue;
+      if(pose){if(!s.pose){s.blend.reset();s.filter.reset();s.lastTransform=null;}s.pose={...pose,sourceWidth:canvas.width,sourceHeight:canvas.height};s.last=now;s.lostAt=null;}
+      else if(s.pose){s.pose=null;s.lostAt=now;s.filter.reset();}
+    }}
+    detectTimer=setTimeout(()=>detectFrame(ticket),60);
+  }catch(error){if(ticket!==session)return;stop();status(`标签检测中断：${error.message}。请重新打开相机。`);}
+}
+function render(time){
+  if(running){
+    for(const item of config.items.filter(i=>i.enabled)){
+      const s=states.get(item.id);if(!s)continue;
+      if(s.pose&&(time-s.last>600||time-lastDetection>600)){s.pose=null;s.lostAt=time;s.filter.reset();}
+      let transform=null;
+      if(s.pose){const quad=s.filter.update(coverQuad(s.pose.quad,s.pose.sourceWidth,s.pose.sourceHeight,$('stage').clientWidth,$('stage').clientHeight),time);transform=quad?C.homography(photoGeometry(item).diameter,photoGeometry(item).diameter,quad):null;}
+      let opacity=s.blend.update(s.pose?.cameraHeightMm,item.fadeStartHeightMm,item.revealHeightMm,!!transform&&s.img.complete&&s.img.naturalWidth>0,time,item.blendDurationMs);
+      if(transform)s.lastTransform=transform;
+      if((s.lostAt!==null&&time-s.lostAt>150)||(s.pose&&!transform)){s.blend.reset();opacity=0;s.lastTransform=null;}
+      const show=opacity>.001&&s.lastTransform&&s.img.complete&&s.img.naturalWidth>0;s.img.style.display=show?'block':'none';s.img.style.opacity=String(opacity);if(show)s.img.style.transform=`matrix3d(${s.lastTransform.join(',')})`;
+    }
+  }requestAnimationFrame(render);
+}
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&(running||starting)){stop();status('页面进入后台，相机已关闭。返回后重新打开即可，无需校准。');}});window.addEventListener('pagehide',stop);
+await loadCatalog();setInterval(loadCatalog,15000);requestAnimationFrame(render);

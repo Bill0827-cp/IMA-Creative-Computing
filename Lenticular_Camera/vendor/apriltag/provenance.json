@@ -1,0 +1,30 @@
+{
+  "repository": "https://github.com/AliAlimohamad/apriltag-js",
+  "revision": "4359086c430e44342098a464c359aacf00cf6bc8",
+  "files": {
+    "apriltag_wasm.js": {
+      "bytes": 86955,
+      "sha256": "bd2d5f3f0de0ba0aa72b64996bb595cdedc52e1130d9c5331673ea3e6c66c1ea"
+    },
+    "apriltag_wasm.wasm": {
+      "bytes": 1394768,
+      "sha256": "5e94b2449e8cbe73412fd7457d7d322df4c139b1ce4288f503f96837db36e3fa"
+    },
+    "apriltag-wasm-wrapper.js": {
+      "bytes": 13411,
+      "sha256": "e4c0babf9b9b88b6007ebdcf8249a64689aa1a3197c9029c294bafd57292b11f"
+    },
+    "tag-families.js": {
+      "bytes": 3209,
+      "sha256": "b733ec9d1d25d1ce2a38a026565491287df2446bc3499ee0d48b3229df164636"
+    },
+    "LICENSE": {
+      "bytes": 1648,
+      "sha256": "519d8bd10cd38333ddf79e97249e422c28584f6d5661f14e08d706a1515b293b"
+    },
+    "NOTICE": {
+      "bytes": 1056,
+      "sha256": "00e7d0fd6c7a724e49dcccd92f5ae647ce1b1a5547d40546891e3563c3bd40dc"
+    }
+  }
+}

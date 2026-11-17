@@ -52,3 +52,13 @@ const moved=filter.update(a.map(([x,y])=>[x+100,y]),32);assert.ok(moved[0][0]>70
 filter.reset();close(filter.update(b,100)[0][0],2);
 assert.equal(filter.update([null,...a.slice(1)],116),null);
 console.log('PASS: continuous blend endpoints/midpoint, smooth reversal, frame-rate independence, jitter filtering and reacquisition reset');
+const {HeightReveal}=require('./core.js');
+function heightMix(height){const b=new HeightReveal();for(let t=0;t<=15000;t+=20)b.update(height,1500,1200,true,t,900);return b.opacity;}
+close(heightMix(1750),0);close(heightMix(1500),0);close(heightMix(1200),1);close(heightMix(1000),1);
+assert.ok(heightMix(1400)<.08);assert.ok(heightMix(1350)>.30&&heightMix(1350)<.32);assert.ok(heightMix(1300)>.65&&heightMix(1300)<.69);
+const slow=new HeightReveal();slow.update(1200,1500,1200,true,0);let t=0;for(t=20;t<=900;t+=20)slow.update(1200,1500,1200,true,t,900);assert.ok(slow.opacity>.62&&slow.opacity<.64);
+const previous=slow.opacity;slow.update(1750,1500,1200,true,920,900);assert.ok(slow.opacity<previous&&slow.opacity>previous-.02);
+slow.update(null,1500,1200,false,940,900);assert.ok(slow.opacity<previous*.8);
+function heightRate(fps){const b=new HeightReveal();b.update(1200,1500,1200,true,0);for(let n=1;n<=fps;n++)b.update(1200,1500,1200,true,n*1000/fps);return b.opacity;}
+close(heightRate(30),heightRate(60));
+console.log('PASS: height-based slow blend, original-image dominance, 120 cm full reveal, smooth rise and frame-rate independence');

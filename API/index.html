@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f1fb">
+  <title>Moodlet ? Your day, in an emoji</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <main>
+    <header><span class="brand">moodlet<span>.</span></span><h1>Your day, in an emoji.</h1><p>Write how you feel. Turn it into a little face.</p></header>
+    <div class="workspace">
+      <form id="diaryForm">
+        <label for="diary">Your diary</label>
+        <textarea id="diary" maxlength="3000" required placeholder="Today I felt..." aria-describedby="privacy"></textarea>
+        <button id="generate" type="submit" disabled>Generate emoji <span aria-hidden="true">&#8599;</span></button>
+        <button id="saveDiary" class="secondary" type="button" disabled>Save diary &amp; emoji</button>
+        <p id="saveStatus" class="note" role="status" aria-live="polite"></p>
+        <p id="privacy" class="note">Saved diaries stay in this browser. Only an automatically matched mood description is sent to the image service.</p>
+      </form>
+      <section class="result" aria-label="Generated emoji" aria-busy="false" id="result">
+        <div id="placeholder"><div class="empty-face" aria-hidden="true"><span>&bull; &bull;</span><i></i></div><h2>Your emoji goes here</h2><p>One entry. One little expression.</p></div>
+        <img id="emoji" alt="Emoji generated from your diary's mood" hidden>
+        <div id="loading" hidden><span class="spinner" aria-hidden="true"></span><h2>Creating your emoji...</h2><p>This may take a minute or two.</p></div>
+        <p id="status" role="status" aria-live="polite"></p>
+      </section>
+    </div>
+    <section class="history" aria-labelledby="historyTitle">
+      <div class="history-header"><div><h2 id="historyTitle">Saved diaries</h2><p>Choose a date. Tap an emoji to open your diary.</p></div><div class="date-filter"><label for="diaryDate">Find by date</label><input type="date" id="diaryDate"></div></div>
+      <p class="storage-note">Saved on this device and browser only. Clearing browser data removes saved diaries.</p>
+      <div id="diaryList" aria-live="polite"></div>
+    </section>
+  </main>
+</body>
+</html>

@@ -75,6 +75,22 @@
       this.points=this.points.map((p,i)=>p.map((v,j)=>v+(points[i][j]-v)*weight));return this.points;
     }
   }
-  const api={clamp,viewingAngle,targetQuad,homography,RevealGate,RevealBlend,QuadSmoother};
+  class HeightReveal{
+    constructor(){this.reset();}
+    reset(){this.opacity=0;this.lastTime=null;}
+    update(height,start,full,eligible,now,duration=900){
+      const dt=this.lastTime===null?0:clamp(now-this.lastTime,0,100);this.lastTime=now;
+      const valid=eligible&&Number.isFinite(height)&&start>full;
+      const progress=valid?clamp((start-height)/(start-full),0,1):0;
+      const smooth=progress**3*(progress*(progress*6-15)+10);
+      // Keep the real wall image dominant early, then blend into B near child height.
+      const target=smooth**1.7;
+      const tau=valid?clamp(duration,200,2000):45;
+      this.opacity+=(target-this.opacity)*(1-Math.exp(-dt/tau));
+      if(Math.abs(this.opacity-target)<.001)this.opacity=target;
+      return this.opacity;
+    }
+  }
+  const api={clamp,viewingAngle,targetQuad,homography,RevealGate,RevealBlend,QuadSmoother,HeightReveal};
   if(typeof module!=='undefined')module.exports=api;else root.WallView=api;
 })(typeof window==='undefined'?globalThis:window);

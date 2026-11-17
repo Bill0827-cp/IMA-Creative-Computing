@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "wall-perspectives",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-11-14",
+  "assets": {"directory": "./dist", "binding": "ASSETS", "run_worker_first": ["/api/*", "/media/*"]},
+  "d1_databases": [{"binding": "DB", "database_name": "wall-perspectives", "database_id": "807403e6-844d-4c12-985c-198cbf98f134", "migrations_dir": "migrations"}],
+  "r2_buckets": [{"binding": "IMAGES", "bucket_name": "wall-perspectives-images"}]
+}
